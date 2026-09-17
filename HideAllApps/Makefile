@@ -1,4 +1,4 @@
-ARCHS = arm64
+ARCHS = arm64e
 TARGET = iphone:clang:16.5:17.0
 THEOS_PACKAGE_SCHEME = roothide
 
