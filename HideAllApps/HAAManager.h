@@ -7,6 +7,7 @@ typedef NS_ENUM(NSInteger, HAAGestureType) {
     HAAGestureTypeSwipeRight,
     HAAGestureTypeStatusBarSingleTap,
     HAAGestureTypeStatusBarDoubleTap,
+    HAAGestureTypeShake,
 };
 
 extern NSString * const kHAASuiteName;
