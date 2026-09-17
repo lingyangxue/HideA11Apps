@@ -40,10 +40,11 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 
 - (void)reload {
     NSUserDefaults *d = [self defaults];
-    self.enabled     = [d boolForKey:@"enabled"];
-    self.gestureType = [d integerForKey:@"gestureType"];
-    self.hideAll     = [d boolForKey:@"hideAll"];
-    NSArray *arr     = [d arrayForKey:@"hiddenBundleIDs"] ?: @[];
+    self.enabled      = [d boolForKey:@"enabled"];
+    self.gestureType  = [d integerForKey:@"gestureType"];
+    self.shakeEnabled = [d boolForKey:@"shakeEnabled"];
+    self.hideAll      = [d boolForKey:@"hideAll"];
+    NSArray *arr      = [d arrayForKey:@"hiddenBundleIDs"] ?: @[];
     self.hiddenBundleIDs = [NSSet setWithArray:arr];
 
     if (self.hideAll) [self startRefreshTimer];
@@ -58,17 +59,14 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     return [self.hiddenBundleIDs containsObject:bundleID];
 }
 
-// ===== 切换（给上滑/左滑/右滑/单击这些手势用）=====
 - (void)toggleHidden {
     if (self.hideAll) [self showAllNow];
     else [self hideAllNow];
 }
 
-// ===== 只隐藏（给摇一摇用）=====
 - (void)hideAllNow {
     if (!self.enabled) return;
     if (self.hideAll) {
-        // 已经隐藏了，保持
         [self refreshAllIconViews];
         return;
     }
@@ -81,11 +79,9 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     [self refreshAllIconViews];
 }
 
-// ===== 只显示（给双击状态栏用）=====
 - (void)showAllNow {
     if (!self.enabled) return;
     if (!self.hideAll) {
-        // 已经显示了，保持
         [self refreshAllIconViews];
         return;
     }
@@ -119,7 +115,6 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     if (![iconView isKindOfClass:[UIView class]]) return;
 
     UIView *view = (UIView *)iconView;
-
     BOOL hide = NO;
     id icon = nil;
     if ([iconView respondsToSelector:@selector(icon)]) {
