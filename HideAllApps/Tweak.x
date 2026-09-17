@@ -57,7 +57,22 @@
     %orig(filtered);
 }
 %end
+%hook UIWindow
+- (void)didMoveToWindow {
+    %orig;
+    NSString *cls = NSStringFromClass(self.class);
+    if ([cls containsString:@"StatusBar"]) {
+        [[HAAGestureManager sharedManager] setupStatusBarGestures:self];
+    }
+}
 
+- (void)motionEnded:(UIEventSubtype)motion withEvent:(UIEvent *)event {
+    %orig;
+    if (motion == UIEventSubtypeMotionShake) {
+        [[HAAGestureManager sharedManager] handleShake];
+    }
+}
+%end
 %ctor {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.5 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
