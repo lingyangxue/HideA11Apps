@@ -68,6 +68,11 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
 - (void)handleSwipeRight:(UISwipeGestureRecognizer *)gr { if ([self gestureMatches:HAAGestureTypeSwipeRight]) [self fireToggle]; }
 - (void)handleStatusBarSingleTap:(UITapGestureRecognizer *)gr { if ([self gestureMatches:HAAGestureTypeStatusBarSingleTap]) [self fireToggle]; }
 - (void)handleStatusBarDoubleTap:(UITapGestureRecognizer *)gr { if ([self gestureMatches:HAAGestureTypeStatusBarDoubleTap]) [self fireToggle]; }
+
+- (void)handleShake {
+    if ([self gestureMatches:HAAGestureTypeShake]) [self fireToggle];
+}
+
 - (void)fireToggle { [[HAAManager sharedManager] toggleHidden]; }
 
 @end
