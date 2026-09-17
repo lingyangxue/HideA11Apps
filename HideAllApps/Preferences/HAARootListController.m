@@ -32,8 +32,7 @@
         PSSpecifier *group2 = [PSSpecifier groupSpecifierWithName:@"触发手势（打开任意一个即可，会互斥）"];
         [group2 setProperty:@"打开其中一个开关后，另一个会自动关闭" forKey:@"footerText"];
         [specs addObject:group2];
-
-        NSArray *names = @[@"关闭", @"上滑", @"左滑", @"右滑", @"状态栏单击", @"状态栏双击"];
+NSArray *names = @[@"关闭", @"上滑", @"左滑", @"右滑", @"状态栏单击", @"状态栏双击", @"摇一摇"];
         for (NSInteger i = 0; i < names.count; i++) {
             PSSpecifier *sp = [PSSpecifier preferenceSpecifierNamed:names[i] target:self set:@selector(setGestureValue:specifier:) get:@selector(gestureValue:) detail:nil cell:PSSwitchCell edit:nil];
             [sp setProperty:@(i) forKey:@"gestureIndex"];
