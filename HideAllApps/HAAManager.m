@@ -76,13 +76,11 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if ([self gestureMatches:HAAGestureTypeStatusBarSingleTap]) [self fireToggle];
 }
 
-// 双击状态栏 = 只恢复
 - (void)handleStatusBarDoubleTap:(UITapGestureRecognizer *)gr {
     if (![self gestureMatches:HAAGestureTypeStatusBarDoubleTap]) return;
     [[HAAManager sharedManager] showAllNow];
 }
 
-// 摇一摇 = 只隐藏（独立开关，和状态栏手势互不影响）
 - (void)handleShake {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled || !m.shakeEnabled) return;
