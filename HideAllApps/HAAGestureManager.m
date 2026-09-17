@@ -63,16 +63,33 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     return m.enabled && m.gestureType == type;
 }
 
-- (void)handleSwipeUp:(UISwipeGestureRecognizer *)gr { if ([self gestureMatches:HAAGestureTypeSwipeUp]) [self fireToggle]; }
-- (void)handleSwipeLeft:(UISwipeGestureRecognizer *)gr { if ([self gestureMatches:HAAGestureTypeSwipeLeft]) [self fireToggle]; }
-- (void)handleSwipeRight:(UISwipeGestureRecognizer *)gr { if ([self gestureMatches:HAAGestureTypeSwipeRight]) [self fireToggle]; }
-- (void)handleStatusBarSingleTap:(UITapGestureRecognizer *)gr { if ([self gestureMatches:HAAGestureTypeStatusBarSingleTap]) [self fireToggle]; }
-- (void)handleStatusBarDoubleTap:(UITapGestureRecognizer *)gr { if ([self gestureMatches:HAAGestureTypeStatusBarDoubleTap]) [self fireToggle]; }
-
-- (void)handleShake {
-    if ([self gestureMatches:HAAGestureTypeShake]) [self fireToggle];
+- (void)handleSwipeUp:(UISwipeGestureRecognizer *)gr {
+    if ([self gestureMatches:HAAGestureTypeSwipeUp]) [self fireToggle];
+}
+- (void)handleSwipeLeft:(UISwipeGestureRecognizer *)gr {
+    if ([self gestureMatches:HAAGestureTypeSwipeLeft]) [self fireToggle];
+}
+- (void)handleSwipeRight:(UISwipeGestureRecognizer *)gr {
+    if ([self gestureMatches:HAAGestureTypeSwipeRight]) [self fireToggle];
+}
+- (void)handleStatusBarSingleTap:(UITapGestureRecognizer *)gr {
+    if ([self gestureMatches:HAAGestureTypeStatusBarSingleTap]) [self fireToggle];
 }
 
-- (void)fireToggle { [[HAAManager sharedManager] toggleHidden]; }
+// 双击状态栏 = 只恢复
+- (void)handleStatusBarDoubleTap:(UITapGestureRecognizer *)gr {
+    if (![self gestureMatches:HAAGestureTypeStatusBarDoubleTap]) return;
+    [[HAAManager sharedManager] showAllNow];
+}
+
+// 摇一摇 = 只隐藏
+- (void)handleShake {
+    if (![self gestureMatches:HAAGestureTypeShake]) return;
+    [[HAAManager sharedManager] hideAllNow];
+}
+
+- (void)fireToggle {
+    [[HAAManager sharedManager] toggleHidden];
+}
 
 @end
