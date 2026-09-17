@@ -11,7 +11,10 @@ HideAllApps_FRAMEWORKS = UIKit Foundation
 HideAllApps_PRIVATE_FRAMEWORKS = SpringBoardUI SpringBoardFoundation
 HideAllApps_CODESIGN_FLAGS = -SHideAllApps.entitlements
 
+SUBPROJECTS += Preferences
+
 include $(THEOS_MAKE_PATH)/tweak.mk
+include $(THEOS_MAKE_PATH)/aggregate.mk
 
 after-install::
 	install.exec "killall -9 SpringBoard"
