@@ -1,169 +1,96 @@
+#import "HAAGestureManager.h"
 #import "HAAManager.h"
-#import <notify.h>
-#import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 
-NSString * const kHAASuiteName = @"com.yourname.hideallapps";
-NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps/prefsChanged";
+static const void *kHAAGestureInstalledKey   = &kHAAGestureInstalledKey;
+static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
 
-@interface HAAManager ()
-@property (nonatomic, assign) int notifyToken;
-@end
-
-@implementation HAAManager
+@implementation HAAGestureManager
 
 + (instancetype)sharedManager {
-    static HAAManager *shared = nil;
+    static HAAGestureManager *shared = nil;
     static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{ shared = [[HAAManager alloc] init]; });
+    dispatch_once(&onceToken, ^{ shared = [[HAAGestureManager alloc] init]; });
     return shared;
 }
 
-- (instancetype)init {
-    self = [super init];
-    if (self) {
-        _hiddenBundleIDs = [NSSet set];
-        [self reload];
-        __weak typeof(self) weakSelf = self;
-        notify_register_dispatch(kHAAPrefsChangedDarwinNotification.UTF8String,
-                                 &_notifyToken,
-                                 dispatch_get_main_queue(), ^(int token) {
-            [weakSelf reload];
-            [weakSelf refreshAllIconViews];
-        });
-    }
-    return self;
+- (void)setupGesturesOnView:(UIView *)view {
+    if (!view) return;
+    if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
+    objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+    UISwipeGestureRecognizer *up = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeUp:)];
+    up.direction = UISwipeGestureRecognizerDirectionUp;
+    [view addGestureRecognizer:up];
+
+    UISwipeGestureRecognizer *left = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeLeft:)];
+    left.direction = UISwipeGestureRecognizerDirectionLeft;
+    [view addGestureRecognizer:left];
+
+    UISwipeGestureRecognizer *right = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeRight:)];
+    right.direction = UISwipeGestureRecognizerDirectionRight;
+    [view addGestureRecognizer:right];
 }
 
-- (NSUserDefaults *)defaults {
-    return [[NSUserDefaults alloc] initWithSuiteName:kHAASuiteName];
+- (void)setupStatusBarGestures:(UIView *)view {
+    if (!view) return;
+    if (objc_getAssociatedObject(view, kHAAStatusBarInstalledKey)) return;
+    objc_setAssociatedObject(view, kHAAStatusBarInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    view.userInteractionEnabled = YES;
+
+    UITapGestureRecognizer *single = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleStatusBarSingleTap:)];
+    single.numberOfTapsRequired = 1;
+    single.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:single];
+
+    UITapGestureRecognizer *double_ = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleStatusBarDoubleTap:)];
+    double_.numberOfTapsRequired = 2;
+    double_.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:double_];
+
+    [single requireGestureRecognizerToFail:double_];
 }
 
-- (void)reload {
-    NSUserDefaults *d = [self defaults];
-    self.enabled      = [d boolForKey:@"enabled"];
-    self.gestureType  = [d integerForKey:@"gestureType"];
-    self.shakeEnabled = [d boolForKey:@"shakeEnabled"];
-    self.hideAll      = [d boolForKey:@"hideAll"];
-    NSArray *arr      = [d arrayForKey:@"hiddenBundleIDs"] ?: @[];
-    self.hiddenBundleIDs = [NSSet setWithArray:arr];
-
-    if (self.hideAll) [self startRefreshTimer];
-    else [self stopRefreshTimer];
-}
-
-- (BOOL)shouldHideBundleID:(NSString *)bundleID {
-    if (!self.enabled) return NO;
-    if (!bundleID || bundleID.length == 0) return NO;
-    if ([bundleID isEqualToString:@"com.apple.springboard"]) return NO;
-    if (self.hideAll) return YES;
-    return [self.hiddenBundleIDs containsObject:bundleID];
-}
-
-- (void)toggleHidden {
-    if (self.hideAll) [self showAllNow];
-    else [self hideAllNow];
-}
-
-- (void)hideAllNow {
-    if (!self.enabled) return;
-    if (self.hideAll) {
-        [self refreshAllIconViews];
-        return;
-    }
-    self.hideAll = YES;
-    NSUserDefaults *d = [self defaults];
-    [d setBool:YES forKey:@"hideAll"];
-    [d synchronize];
-    notify_post(kHAAPrefsChangedDarwinNotification.UTF8String);
-    [self startRefreshTimer];
-    [self refreshAllIconViews];
-}
-
-- (void)showAllNow {
-    if (!self.enabled) return;
-    if (!self.hideAll) {
-        [self refreshAllIconViews];
-        return;
-    }
-    self.hideAll = NO;
-    NSUserDefaults *d = [self defaults];
-    [d setBool:NO forKey:@"hideAll"];
-    [d synchronize];
-    notify_post(kHAAPrefsChangedDarwinNotification.UTF8String);
-    [self stopRefreshTimer];
-    [self refreshAllIconViews];
-}
-
-- (void)startRefreshTimer {
-    [self stopRefreshTimer];
-    self.refreshTimer = [NSTimer scheduledTimerWithTimeInterval:0.3
-                                                         target:self
-                                                       selector:@selector(refreshAllIconViews)
-                                                       userInfo:nil
-                                                        repeats:YES];
-}
-
-- (void)stopRefreshTimer {
-    if (self.refreshTimer) {
-        [self.refreshTimer invalidate];
-        self.refreshTimer = nil;
+- (void)installGesturesIntoSpringBoard {
+    for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        NSString *cls = NSStringFromClass(w.class);
+        if ([cls containsString:@"StatusBar"]) { [self setupStatusBarGestures:w]; }
     }
 }
 
-- (void)applyHiddenStateToIconView:(id)iconView {
-    if (!iconView) return;
-    if (![iconView isKindOfClass:[UIView class]]) return;
-
-    UIView *view = (UIView *)iconView;
-    BOOL hide = NO;
-    id icon = nil;
-    if ([iconView respondsToSelector:@selector(icon)]) {
-        icon = [iconView performSelector:@selector(icon)];
-    }
-    if (icon) {
-        NSString *bundleID = nil;
-        if ([icon respondsToSelector:@selector(applicationBundleIdentifier)]) {
-            bundleID = [icon performSelector:@selector(applicationBundleIdentifier)];
-        }
-        if (!bundleID && [icon respondsToSelector:@selector(application)]) {
-            id app = [icon performSelector:@selector(application)];
-            if ([app respondsToSelector:@selector(bundleIdentifier)]) {
-                bundleID = [app performSelector:@selector(bundleIdentifier)];
-            }
-        }
-        if (!bundleID && self.enabled && self.hideAll) {
-            hide = YES;
-        } else if (bundleID) {
-            hide = [self shouldHideBundleID:bundleID];
-        }
-    }
-
-    view.alpha = hide ? 0.0 : 1.0;
-    view.userInteractionEnabled = !hide;
+- (BOOL)gestureMatches:(HAAGestureType)type {
+    HAAManager *m = [HAAManager sharedManager];
+    return m.enabled && m.gestureType == type;
 }
 
-- (void)refreshAllIconViews {
-    for (UIWindow *window in [UIApplication sharedApplication].windows) {
-        [self _walkView:window depth:0];
-    }
+- (void)handleSwipeUp:(UISwipeGestureRecognizer *)gr {
+    if ([self gestureMatches:HAAGestureTypeSwipeUp]) [self fireToggle];
+}
+- (void)handleSwipeLeft:(UISwipeGestureRecognizer *)gr {
+    if ([self gestureMatches:HAAGestureTypeSwipeLeft]) [self fireToggle];
+}
+- (void)handleSwipeRight:(UISwipeGestureRecognizer *)gr {
+    if ([self gestureMatches:HAAGestureTypeSwipeRight]) [self fireToggle];
+}
+- (void)handleStatusBarSingleTap:(UITapGestureRecognizer *)gr {
+    if ([self gestureMatches:HAAGestureTypeStatusBarSingleTap]) [self fireToggle];
 }
 
-- (void)_walkView:(UIView *)view depth:(int)depth {
-    if (depth > 25) return;
+// 双击状态栏 = 只恢复
+- (void)handleStatusBarDoubleTap:(UITapGestureRecognizer *)gr {
+    if (![self gestureMatches:HAAGestureTypeStatusBarDoubleTap]) return;
+    [[HAAManager sharedManager] showAllNow];
+}
 
-    NSString *cls = NSStringFromClass(view.class);
-    BOOL isIconClass = NO;
-    if ([cls isEqualToString:@"SBIconView"]) isIconClass = YES;
-    if ([cls isEqualToString:@"SBFolderIconView"]) isIconClass = YES;
-    if ([cls containsString:@"IconView"] && [cls containsString:@"SB"]) isIconClass = YES;
+// 摇一摇 = 只隐藏（独立开关，和状态栏手势互不影响）
+- (void)handleShake {
+    HAAManager *m = [HAAManager sharedManager];
+    if (!m.enabled || !m.shakeEnabled) return;
+    [m hideAllNow];
+}
 
-    if (isIconClass) {
-        [self applyHiddenStateToIconView:view];
-    }
-
-    for (UIView *sub in view.subviews) {
-        [self _walkView:sub depth:depth + 1];
-    }
+- (void)fireToggle {
+    [[HAAManager sharedManager] toggleHidden];
 }
 
 @end
