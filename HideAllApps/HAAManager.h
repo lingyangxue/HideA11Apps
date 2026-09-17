@@ -23,6 +23,8 @@ extern NSString * const kHAAPrefsChangedDarwinNotification;
 - (void)reload;
 - (BOOL)shouldHideBundleID:(NSString *)bundleID;
 - (void)toggleHidden;
+- (void)hideAllNow;
+- (void)showAllNow;
 - (void)refreshAllIconViews;
 - (void)applyHiddenStateToIconView:(id)iconView;
 - (void)startRefreshTimer;
