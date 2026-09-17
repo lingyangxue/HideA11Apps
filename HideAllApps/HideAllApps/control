@@ -1,0 +1,9 @@
+Package: com.yourname.hideallapps
+Name: HideAllApps
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 手势一键隐藏/显示桌面所有 App，支持选择特定 App 隐藏
+Maintainer: yourname
+Author: yourname
+Section: Tweaks
+Depends: ellekit, firmware (>= 15.0)
