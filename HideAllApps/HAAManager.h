@@ -7,7 +7,6 @@ typedef NS_ENUM(NSInteger, HAAGestureType) {
     HAAGestureTypeSwipeRight,
     HAAGestureTypeStatusBarSingleTap,
     HAAGestureTypeStatusBarDoubleTap,
-    HAAGestureTypeShake,
 };
 
 extern NSString * const kHAASuiteName;
@@ -16,6 +15,7 @@ extern NSString * const kHAAPrefsChangedDarwinNotification;
 @interface HAAManager : NSObject
 @property (nonatomic, assign) BOOL enabled;
 @property (nonatomic, assign) NSInteger gestureType;
+@property (nonatomic, assign) BOOL shakeEnabled;
 @property (nonatomic, assign) BOOL hideAll;
 @property (nonatomic, strong) NSSet *hiddenBundleIDs;
 @property (nonatomic, strong) NSTimer *refreshTimer;
