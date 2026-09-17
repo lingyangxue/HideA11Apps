@@ -45,6 +45,9 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     self.hideAll     = [d boolForKey:@"hideAll"];
     NSArray *arr     = [d arrayForKey:@"hiddenBundleIDs"] ?: @[];
     self.hiddenBundleIDs = [NSSet setWithArray:arr];
+
+    if (self.hideAll) [self startRefreshTimer];
+    else [self stopRefreshTimer];
 }
 
 - (BOOL)shouldHideBundleID:(NSString *)bundleID {
@@ -55,19 +58,43 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     return [self.hiddenBundleIDs containsObject:bundleID];
 }
 
+// ===== 切换（给上滑/左滑/右滑/单击这些手势用）=====
 - (void)toggleHidden {
-    BOOL newValue = !self.hideAll;
-    self.hideAll = newValue;
+    if (self.hideAll) [self showAllNow];
+    else [self hideAllNow];
+}
+
+// ===== 只隐藏（给摇一摇用）=====
+- (void)hideAllNow {
+    if (!self.enabled) return;
+    if (self.hideAll) {
+        // 已经隐藏了，保持
+        [self refreshAllIconViews];
+        return;
+    }
+    self.hideAll = YES;
     NSUserDefaults *d = [self defaults];
-    [d setBool:newValue forKey:@"hideAll"];
+    [d setBool:YES forKey:@"hideAll"];
     [d synchronize];
     notify_post(kHAAPrefsChangedDarwinNotification.UTF8String);
+    [self startRefreshTimer];
+    [self refreshAllIconViews];
+}
 
-    if (newValue) {
-        [self startRefreshTimer];
-    } else {
-        [self stopRefreshTimer];
+// ===== 只显示（给双击状态栏用）=====
+- (void)showAllNow {
+    if (!self.enabled) return;
+    if (!self.hideAll) {
+        // 已经显示了，保持
+        [self refreshAllIconViews];
+        return;
     }
+    self.hideAll = NO;
+    NSUserDefaults *d = [self defaults];
+    [d setBool:NO forKey:@"hideAll"];
+    [d synchronize];
+    notify_post(kHAAPrefsChangedDarwinNotification.UTF8String);
+    [self stopRefreshTimer];
     [self refreshAllIconViews];
 }
 
@@ -109,7 +136,6 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
                 bundleID = [app performSelector:@selector(bundleIdentifier)];
             }
         }
-        // 文件夹 / App Library 分类没有 bundleID，统一按 hideAll 处理
         if (!bundleID && self.enabled && self.hideAll) {
             hide = YES;
         } else if (bundleID) {
