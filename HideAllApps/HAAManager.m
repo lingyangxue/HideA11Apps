@@ -62,44 +62,87 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     [d setBool:newValue forKey:@"hideAll"];
     [d synchronize];
     notify_post(kHAAPrefsChangedDarwinNotification.UTF8String);
+
+    if (newValue) {
+        [self startRefreshTimer];
+    } else {
+        [self stopRefreshTimer];
+    }
+    [self refreshAllIconViews];
+}
+
+- (void)startRefreshTimer {
+    [self stopRefreshTimer];
+    self.refreshTimer = [NSTimer scheduledTimerWithTimeInterval:0.3
+                                                         target:self
+                                                       selector:@selector(refreshAllIconViews)
+                                                       userInfo:nil
+                                                        repeats:YES];
+}
+
+- (void)stopRefreshTimer {
+    if (self.refreshTimer) {
+        [self.refreshTimer invalidate];
+        self.refreshTimer = nil;
+    }
 }
 
 - (void)applyHiddenStateToIconView:(id)iconView {
     if (!iconView) return;
+    if (![iconView isKindOfClass:[UIView class]]) return;
+
+    UIView *view = (UIView *)iconView;
+
+    BOOL hide = NO;
     id icon = nil;
     if ([iconView respondsToSelector:@selector(icon)]) {
         icon = [iconView performSelector:@selector(icon)];
     }
-    if (!icon) return;
-    NSString *bundleID = nil;
-    if ([icon respondsToSelector:@selector(applicationBundleIdentifier)]) {
-        bundleID = [icon performSelector:@selector(applicationBundleIdentifier)];
-    }
-    if (!bundleID && [icon respondsToSelector:@selector(application)]) {
-        id app = [icon performSelector:@selector(application)];
-        if ([app respondsToSelector:@selector(bundleIdentifier)]) {
-            bundleID = [app performSelector:@selector(bundleIdentifier)];
+    if (icon) {
+        NSString *bundleID = nil;
+        if ([icon respondsToSelector:@selector(applicationBundleIdentifier)]) {
+            bundleID = [icon performSelector:@selector(applicationBundleIdentifier)];
+        }
+        if (!bundleID && [icon respondsToSelector:@selector(application)]) {
+            id app = [icon performSelector:@selector(application)];
+            if ([app respondsToSelector:@selector(bundleIdentifier)]) {
+                bundleID = [app performSelector:@selector(bundleIdentifier)];
+            }
+        }
+        // 文件夹 / App Library 分类没有 bundleID，统一按 hideAll 处理
+        if (!bundleID && self.enabled && self.hideAll) {
+            hide = YES;
+        } else if (bundleID) {
+            hide = [self shouldHideBundleID:bundleID];
         }
     }
-    if (!bundleID) return;
-    BOOL hide = [self shouldHideBundleID:bundleID];
-    UIView *view = (UIView *)iconView;
+
     view.alpha = hide ? 0.0 : 1.0;
     view.userInteractionEnabled = !hide;
 }
 
 - (void)refreshAllIconViews {
     for (UIWindow *window in [UIApplication sharedApplication].windows) {
-        [self _walkView:window];
+        [self _walkView:window depth:0];
     }
 }
 
-- (void)_walkView:(UIView *)view {
-    Class iconViewClass = NSClassFromString(@"SBIconView");
-    if (iconViewClass && [view isKindOfClass:iconViewClass]) {
+- (void)_walkView:(UIView *)view depth:(int)depth {
+    if (depth > 25) return;
+
+    NSString *cls = NSStringFromClass(view.class);
+    BOOL isIconClass = NO;
+    if ([cls isEqualToString:@"SBIconView"]) isIconClass = YES;
+    if ([cls isEqualToString:@"SBFolderIconView"]) isIconClass = YES;
+    if ([cls containsString:@"IconView"] && [cls containsString:@"SB"]) isIconClass = YES;
+
+    if (isIconClass) {
         [self applyHiddenStateToIconView:view];
     }
-    for (UIView *sub in view.subviews) { [self _walkView:sub]; }
+
+    for (UIView *sub in view.subviews) {
+        [self _walkView:sub depth:depth + 1];
+    }
 }
 
 @end
