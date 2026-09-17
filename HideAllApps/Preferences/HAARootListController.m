@@ -1,5 +1,4 @@
 #import "HAARootListController.h"
-#import <Preferences/PSSpecifier.h>
 #import "HAAAppPickerController.h"
 #import <notify.h>
 
