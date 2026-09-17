@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>items</key>
+    <array>
+        <dict>
+            <key>cell</key><string>PSLinkCell</string>
+            <key>label</key><string>HideAllApps</string>
+            <key>detail</key><string>HAARootListController</string>
+            <key>bundle</key><string>HideAllAppsPrefs</string>
+        </dict>
+    </array>
+    <key>title</key><string>HideAllApps</string>
+</dict>
+</plist>
