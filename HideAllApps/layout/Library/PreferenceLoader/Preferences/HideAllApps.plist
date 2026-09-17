@@ -1,0 +1,9 @@
+{
+    entry = {
+        bundle = "HideAllAppsPrefs";
+        cell = PSLinkCell;
+        detail = "HAARootListController";
+        isController = 1;
+        label = "HideAllApps";
+    };
+}
