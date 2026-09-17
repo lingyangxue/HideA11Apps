@@ -3,6 +3,12 @@
 #import "HAAManager.h"
 #import "HAAGestureManager.h"
 
+@interface SBIconController : UIViewController
+@end
+
+@interface SPUIAppResultsViewController : UIViewController
+@end
+
 %hook SBIconView
 - (void)setIcon:(id)icon { %orig; [[HAAManager sharedManager] applyHiddenStateToIconView:self]; }
 - (void)didMoveToWindow { %orig; [[HAAManager sharedManager] applyHiddenStateToIconView:self]; }
