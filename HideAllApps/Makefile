@@ -5,7 +5,7 @@ THEOS_PACKAGE_SCHEME = roothide
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = HideAllApps
-HideAllApps_FILES = Tweak.x HAAManager.m HAAGestureManager.m
+HideAllApps_FILES = Tweak.x HAAManager.m HAAGestureManager.m HAAStatusBarIconManager.m
 HideAllApps_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
 HideAllApps_FRAMEWORKS = UIKit Foundation
 HideAllApps_PRIVATE_FRAMEWORKS = SpringBoardUI SpringBoardFoundation
