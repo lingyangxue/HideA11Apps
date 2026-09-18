@@ -4,10 +4,9 @@
 @property (nonatomic, strong) UIView *container;
 @property (nonatomic, strong) NSMutableArray *iconViews;
 @property (nonatomic, strong) NSMutableArray *visibleBundleIDs;
+@property (nonatomic, strong) NSTimer *pollTimer;
 + (instancetype)sharedManager;
 - (void)setupIfNeeded;
-- (void)appDidLaunch:(NSString *)bundleID;
-- (void)appDidExit:(NSString *)bundleID;
 - (void)refresh;
 - (void)teardown;
 @end
