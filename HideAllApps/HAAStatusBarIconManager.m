@@ -9,7 +9,6 @@
 @property (nonatomic, strong) UIView *container;
 @property (nonatomic, strong) NSMutableArray *iconViews;
 @property (nonatomic, strong) NSMutableArray *visibleBundleIDs;
-@property (nonatomic, strong) NSTimer *pollTimer;
 @end
 
 @implementation HAAStatusBarIconManager
@@ -29,20 +28,10 @@
         __weak typeof(self) weakSelf = self;
         static int token = 0;
         notify_register_dispatch(kDarwinNotification, &token, dispatch_get_main_queue(), ^(int t) {
-            [weakSelf updatePollingState];
             [weakSelf refresh];
         });
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(appBecameActive:)
-                                                     name:@"SBApplicationDidBecomeActiveNotification"
-                                                   object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(appDidExit:)
-                                                     name:@"SBApplicationDidExitNotification"
-                                                   object:nil];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
-            [weakSelf updatePollingState];
             [weakSelf refresh];
         });
     }
@@ -94,89 +83,22 @@
     [vc.view addSubview:self.container];
 }
 
-- (void)updatePollingState {
-    if ([self isEnabled]) {
-        if (!self.pollTimer) {
-            self.pollTimer = [NSTimer scheduledTimerWithTimeInterval:0.8
-                                                              target:self
-                                                            selector:@selector(pollRunningApps)
-                                                            userInfo:nil
-                                                             repeats:YES];
-        }
-    } else {
-        if (self.pollTimer) {
-            [self.pollTimer invalidate];
-            self.pollTimer = nil;
-        }
-        [self teardown];
-    }
-}
-
-- (NSArray *)runningBundleIDs {
-    NSMutableArray *running = [NSMutableArray array];
-
-    Class appCtrlClass = NSClassFromString(@"SBApplicationController");
-    if (!appCtrlClass) return running;
-
-    id shared = nil;
-    if ([appCtrlClass respondsToSelector:@selector(sharedInstance)]) {
-        shared = [appCtrlClass performSelector:@selector(sharedInstance)];
-    }
-    if (!shared) return running;
-
-    NSArray *apps = nil;
-    if ([shared respondsToSelector:@selector(allApplications)]) {
-        apps = [shared performSelector:@selector(allApplications)];
-    }
-    if (!apps) return running;
-
-    for (id app in apps) {
-        NSString *bid = nil;
-        if ([app respondsToSelector:@selector(bundleIdentifier)]) {
-            bid = [app performSelector:@selector(bundleIdentifier)];
-        }
-        if (!bid || bid.length == 0) continue;
-        if ([bid hasPrefix:@"com.apple."]) continue;
-
-        BOOL isRunning = NO;
-        if ([app respondsToSelector:@selector(isRunning)]) {
-            isRunning = [app performSelector:@selector(isRunning)];
-        }
-        if (!isRunning) continue;
-        [running addObject:bid];
-    }
-    return running;
-}
-
-- (void)pollRunningApps {
+// Tweak.x 调用：App 激活
+- (void)noteAppBecameActive:(NSString *)bundleID {
     if (![self isEnabled]) return;
-    NSArray *running = [self runningBundleIDs];
-    NSArray *cur = [self.visibleBundleIDs copy];
-    if (![cur isEqualToArray:running]) {
-        [self.visibleBundleIDs setArray:running];
-        [self refresh];
+    if (!bundleID || bundleID.length == 0) return;
+    if ([bundleID hasPrefix:@"com.apple."]) return;
+    if (![self.visibleBundleIDs containsObject:bundleID]) {
+        [self.visibleBundleIDs addObject:bundleID];
     }
+    [self refresh];
 }
 
-- (void)appBecameActive:(NSNotification *)note {
-    NSDictionary *info = note.userInfo;
-    NSString *bid = info[@"bundleID"];
-    if (!bid) {
-        id obj = note.object;
-        if (obj && [obj respondsToSelector:@selector(bundleIdentifier)]) {
-            bid = [obj performSelector:@selector(bundleIdentifier)];
-        }
-    }
-    if (bid.length && ![bid hasPrefix:@"com.apple."]) {
-        if (![self.visibleBundleIDs containsObject:bid]) {
-            [self.visibleBundleIDs addObject:bid];
-        }
-        [self refresh];
-    }
-}
-
-- (void)appDidExit:(NSNotification *)note {
-    [self pollRunningApps];
+// Tweak.x 调用：App 退出
+- (void)noteAppExited:(NSString *)bundleID {
+    if (!bundleID) return;
+    [self.visibleBundleIDs removeObject:bundleID];
+    [self refresh];
 }
 
 - (UIImage *)iconForBundleID:(NSString *)bundleID {
