@@ -114,29 +114,22 @@
 
 - (NSArray *)runningBundleIDs {
     NSMutableArray *running = [NSMutableArray array];
+
     Class appCtrlClass = NSClassFromString(@"SBApplicationController");
     if (!appCtrlClass) return running;
+
     id shared = nil;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
     if ([appCtrlClass respondsToSelector:@selector(sharedInstance)]) {
         shared = [appCtrlClass performSelector:@selector(sharedInstance)];
     }
-    if (!shared && [appCtrlClass respondsToSelector:@selector(sharedInstanceIfExists)]) {
-        shared = [appCtrlClass performSelector:@selector(sharedInstanceIfExists)];
-    }
-    if (!shared) {
-#pragma clang diagnostic pop
-        return running;
-    }
+    if (!shared) return running;
+
     NSArray *apps = nil;
     if ([shared respondsToSelector:@selector(allApplications)]) {
         apps = [shared performSelector:@selector(allApplications)];
     }
-    if (!apps) {
-#pragma clang diagnostic pop
-        return running;
-    }
+    if (!apps) return running;
+
     for (id app in apps) {
         NSString *bid = nil;
         if ([app respondsToSelector:@selector(bundleIdentifier)]) {
@@ -144,17 +137,14 @@
         }
         if (!bid || bid.length == 0) continue;
         if ([bid hasPrefix:@"com.apple."]) continue;
+
         BOOL isRunning = NO;
         if ([app respondsToSelector:@selector(isRunning)]) {
             isRunning = [app performSelector:@selector(isRunning)];
         }
-        if (!isRunning && [app respondsToSelector:NSSelectorFromString(@"isRunningOrSuspended")]) {
-            isRunning = [app performSelector:NSSelectorFromString(@"isRunningOrSuspended")];
-        }
         if (!isRunning) continue;
         [running addObject:bid];
     }
-#pragma clang diagnostic pop
     return running;
 }
 
