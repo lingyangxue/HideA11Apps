@@ -10,10 +10,6 @@
 @interface SPUIAppResultsViewController : UIViewController
 @end
 
-@interface SBApplication : NSObject
-- (NSString *)bundleIdentifier;
-@end
-
 %hook SBIconView
 - (void)setIcon:(id)icon { %orig; [[HAAManager sharedManager] applyHiddenStateToIconView:self]; }
 - (void)didMoveToWindow { %orig; [[HAAManager sharedManager] applyHiddenStateToIconView:self]; }
@@ -24,15 +20,19 @@
 - (void)viewDidLoad {
     %orig;
     [[HAAGestureManager sharedManager] setupGesturesOnView:self.view];
+    // 关键：主动初始化状态栏图标管理器
+    [[HAAStatusBarIconManager sharedManager] refresh];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
         [[HAAManager sharedManager] refreshAllIconViews];
+        [[HAAStatusBarIconManager sharedManager] refresh];
     });
 }
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
     [[HAAManager sharedManager] refreshAllIconViews];
+    [[HAAStatusBarIconManager sharedManager] refresh];
 }
 %end
 
@@ -55,23 +55,26 @@
 }
 %end
 
-// 监听 App 激活（iOS 17 用这个通知）
 %hook SBApplication
-- (void)setActive:(BOOL)active {
+- (void)setProcessState:(NSInteger)state {
     %orig;
-    if (active) {
-        NSString *bid = [self bundleIdentifier];
+    NSString *bid = nil;
+    if ([self respondsToSelector:@selector(bundleIdentifier)]) {
+        bid = [self performSelector:@selector(bundleIdentifier)];
+    }
+    if (state == 0) {
+        [[HAAStatusBarIconManager sharedManager] noteAppExited:bid];
+    } else if (state >= 1) {
         [[HAAStatusBarIconManager sharedManager] noteAppBecameActive:bid];
     }
 }
-- (void)setProcessState:(NSInteger)state {
+- (void)setActive:(BOOL)active {
     %orig;
-    // state: 0=never, 1=running, 2=suspended, 3=background, 4=foreground
-    if (state == 0) {
-        NSString *bid = [self bundleIdentifier];
-        [[HAAStatusBarIconManager sharedManager] noteAppExited:bid];
-    } else if (state >= 1) {
-        NSString *bid = [self bundleIdentifier];
+    if (active) {
+        NSString *bid = nil;
+        if ([self respondsToSelector:@selector(bundleIdentifier)]) {
+            bid = [self performSelector:@selector(bundleIdentifier)];
+        }
         [[HAAStatusBarIconManager sharedManager] noteAppBecameActive:bid];
     }
 }
@@ -94,9 +97,13 @@
 }
 %end
 
+// 关键：插件一加载就立刻初始化状态栏管理器
 %ctor {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.5 * NSEC_PER_SEC)),
+    NSLog(@"[HideAllApps] tweak loaded!");
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
+        NSLog(@"[HideAllApps] ctor: initializing managers");
+        [[HAAStatusBarIconManager sharedManager] refresh];
         [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
         [[HAAManager sharedManager] refreshAllIconViews];
     });
