@@ -19,18 +19,18 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
-    // 用 UIScreenEdgePanGestureRecognizer 从左侧边缘识别
+    // 方式 1：UIScreenEdgePanGestureRecognizer（左侧边缘）
     UIScreenEdgePanGestureRecognizer *edge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleEdgePan:)];
     edge.edges = UIRectEdgeLeft;
     edge.cancelsTouchesInView = NO;
     [view addGestureRecognizer:edge];
 
-    // 保险：再加上普通的向下滑手势（左侧区域）
-    UISwipeGestureRecognizer *leftDown = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftDown:)];
-    leftDown.direction = UISwipeGestureRecognizerDirectionDown;
-    leftDown.numberOfTouchesRequired = 1;
-    leftDown.cancelsTouchesInView = NO;
-    [view addGestureRecognizer:leftDown];
+    // 方式 2：Pan 手势（手动判断方向和起点）
+    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
+    pan.minimumNumberOfTouches = 1;
+    pan.maximumNumberOfTouches = 1;
+    pan.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:pan];
 }
 
 - (void)setupStatusBarGestures:(UIView *)view {
@@ -67,36 +67,60 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     return m.enabled && m.gestureType == type;
 }
 
-// 屏幕边缘左滑手势
+// 屏幕边缘手势
 - (void)handleEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
-    if (gr.state != UIGestureRecognizerStateEnded &&
-        gr.state != UIGestureRecognizerStateChanged) return;
-
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled) return;
-    if (!m.leftDownEnabled) return;
+    if (!m.enabled || !m.leftDownEnabled) return;
 
-    CGPoint translation = [gr translationInView:gr.view];
-    // 向下滑（y 正向增大）
-    if (translation.y < 40) return;
-    if (translation.y < fabs(translation.x)) return;  // 垂直分量要大于水平
-
-    [m showAllNow];
+    if (gr.state == UIGestureRecognizerStateEnded) {
+        CGPoint translation = [gr translationInView:gr.view];
+        if (translation.y > 30 && fabs(translation.y) > fabs(translation.x)) {
+            [m showAllNow];
+        }
+    }
 }
 
-// 左侧区域向下滑
-- (void)handleLeftDown:(UISwipeGestureRecognizer *)gr {
+// Pan 手势：起点在左侧 + 向下滑 + 在选定的区域
+- (void)handlePan:(UIPanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled) return;
-    if (!m.leftDownEnabled) return;
+    if (!m.enabled || !m.leftDownEnabled) return;
 
-    CGPoint loc = [gr locationInView:gr.view];
+    CGPoint startLoc = [gr locationInView:gr.view];
+    CGPoint translation = [gr translationInView:gr.view];
     CGSize size = gr.view.bounds.size;
 
-    if (loc.x > 150) return;
-    if (loc.y < size.height * 0.10 || loc.y > size.height * 0.90) return;
+    if (gr.state == UIGestureRecognizerStateEnded) {
+        // 起点必须在屏幕左侧 150pt 内
+        if (startLoc.x > 150) return;
+        // 向下滑超过 30pt
+        if (translation.y < 30) return;
+        // 垂直分量要大于水平
+        if (fabs(translation.y) < fabs(translation.x)) return;
 
-    [m showAllNow];
+        // 按选项判断 y 范围
+        CGFloat yRatio = startLoc.y / size.height;
+        NSInteger zone = m.leftDownZone;
+        BOOL inZone = NO;
+
+        switch (zone) {
+            case 0:  // 左侧上半：15% ~ 40%
+                inZone = (yRatio >= 0.15 && yRatio <= 0.40);
+                break;
+            case 1:  // 左侧中段：40% ~ 60%
+                inZone = (yRatio >= 0.40 && yRatio <= 0.60);
+                break;
+            case 2:  // 左侧下半：60% ~ 85%
+                inZone = (yRatio >= 0.60 && yRatio <= 0.85);
+                break;
+            case 3:  // 整个左侧：15% ~ 85%
+            default:
+                inZone = (yRatio >= 0.15 && yRatio <= 0.85);
+                break;
+        }
+
+        if (!inZone) return;
+        [m showAllNow];
+    }
 }
 
 - (void)handleStatusBarSingleTap:(UITapGestureRecognizer *)gr {
