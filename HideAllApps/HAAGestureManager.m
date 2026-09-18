@@ -21,6 +21,18 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
+    // UIScreenEdgePan：系统级边缘手势（不会接收中央区域）
+    UIScreenEdgePanGestureRecognizer *leftEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftEdge:)];
+    leftEdge.edges = UIRectEdgeLeft;
+    leftEdge.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:leftEdge];
+
+    UIScreenEdgePanGestureRecognizer *rightEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRightEdge:)];
+    rightEdge.edges = UIRectEdgeRight;
+    rightEdge.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:rightEdge];
+
+    // UIPan 兜底：只接收左右 50pt 内的触摸（不接收状态栏中央区域）
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
     pan.minimumNumberOfTouches = 1;
     pan.maximumNumberOfTouches = 1;
@@ -31,22 +43,20 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 
 #pragma mark - UIGestureRecognizerDelegate
 
-// 关键：只接收屏幕左右边缘的触摸，其他区域（包括状态栏中央）都不接收
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
        shouldReceiveTouch:(UITouch *)touch {
     UIView *view = gestureRecognizer.view;
     if (!view) return NO;
-
-    CGPoint point = [touch locationInView:view];
-    CGSize size = view.bounds.size;
-
-    // 左右边缘 50pt 内才接收
-    if (point.x <= 50) return YES;
-    if (point.x >= size.width - 50) return YES;
+    CGPoint p = [touch locationInView:view];
+    CGFloat w = view.bounds.size.width;
+    // 只接收左右边缘 50pt 内的触摸
+    if (p.x <= 50) return YES;
+    if (p.x >= w - 50) return YES;
     return NO;
 }
 
 - (void)installGesturesIntoSpringBoard {
+    // 给 SBIconController.view 加
     Class iconCtrlClass = NSClassFromString(@"SBIconController");
     if (iconCtrlClass) {
         id shared = nil;
@@ -58,6 +68,16 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
             if (v) [self setupGesturesOnView:v];
         }
     }
+
+    // 给 SpringBoard 所有主窗口加（不加状态栏窗口）
+    for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        NSString *cls = NSStringFromClass(w.class);
+        if ([cls containsString:@"StatusBar"]) continue;
+        if ([cls containsString:@"Keyboard"]) continue;
+        if (w.bounds.size.width > 300 && w.bounds.size.height > 600) {
+            [self setupGesturesOnView:w];
+        }
+    }
 }
 
 - (BOOL)inYZone:(CGFloat)y height:(CGFloat)h {
@@ -66,6 +86,38 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     if (ratio < m.zoneTopRatio) return NO;
     if (ratio > m.zoneBottomRatio) return NO;
     return YES;
+}
+
+- (void)handleLeftEdge:(UIScreenEdgePanGestureRecognizer *)gr {
+    HAAManager *m = [HAAManager sharedManager];
+    if (!m.enabled || !m.leftDownEnabled) return;
+    if (gr.state != UIGestureRecognizerStateEnded) return;
+
+    CGPoint t = [gr translationInView:gr.view];
+    CGSize size = gr.view.bounds.size;
+    CGPoint loc = [gr locationInView:gr.view];
+
+    if (t.y < 30) return;
+    if (fabs(t.y) < fabs(t.x)) return;
+    if (![self inYZone:loc.y height:size.height]) return;
+
+    [m toggleHidden];
+}
+
+- (void)handleRightEdge:(UIScreenEdgePanGestureRecognizer *)gr {
+    HAAManager *m = [HAAManager sharedManager];
+    if (!m.enabled || !m.rightDownEnabled) return;
+    if (gr.state != UIGestureRecognizerStateEnded) return;
+
+    CGPoint t = [gr translationInView:gr.view];
+    CGSize size = gr.view.bounds.size;
+    CGPoint loc = [gr locationInView:gr.view];
+
+    if (t.y < 30) return;
+    if (fabs(t.y) < fabs(t.x)) return;
+    if (![self inYZone:loc.y height:size.height]) return;
+
+    [m toggleHidden];
 }
 
 - (void)handlePan:(UIPanGestureRecognizer *)gr {
