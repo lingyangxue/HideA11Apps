@@ -1,9 +1,56 @@
 #import "HAARootListController.h"
 #import "HAAAppPickerController.h"
 #import <notify.h>
+#import <spawn.h>
+#import <dlfcn.h>
 
 #define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
+
+@interface HAAConfirmRespringController : PSListController
+@end
+
+@implementation HAAConfirmRespringController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"注销";
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"重启桌面"
+                                                                   message:@"确定要重启 SpringBoard 吗？"
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(UIAlertAction *a) {
+        [self.navigationController popViewControllerAnimated:YES];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"重启" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) {
+        [self doRespring];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)doRespring {
+    notify_post("com.yourname.hideallapps/respring");
+    Class sbcClass = NSClassFromString(@"FBSystemService");
+    if (sbcClass) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        id shared = nil;
+        if ([sbcClass respondsToSelector:@selector(sharedInstance)]) shared = [sbcClass performSelector:@selector(sharedInstance)];
+        if (shared && [shared respondsToSelector:@selector(exitImmediately)]) {
+            [shared performSelector:@selector(exitImmediately)];
+#pragma clang diagnostic pop
+            return;
+        }
+#pragma clang diagnostic pop
+    }
+    void (*exitFunc)(int) = (void (*)(int))dlsym(RTLD_DEFAULT, "exit");
+    if (exitFunc) exitFunc(0);
+}
+
+@end
 
 @implementation HAARootListController
 
@@ -77,6 +124,13 @@
 
         PSSpecifier *pick = [PSSpecifier preferenceSpecifierNamed:@"选择隐藏的 App" target:self set:nil get:nil detail:[HAAAppPickerController class] cell:PSLinkCell edit:nil];
         [specs addObject:pick];
+
+        PSSpecifier *groupR2 = [PSSpecifier groupSpecifierWithName:@"重启桌面"];
+        [groupR2 setProperty:@"点击下方按钮，会弹出确认对话框" forKey:@"footerText"];
+        [specs addObject:groupR2];
+
+        PSSpecifier *respring = [PSSpecifier preferenceSpecifierNamed:@"注销（重启 SpringBoard）" target:self set:nil get:nil detail:[HAAConfirmRespringController class] cell:PSLinkCell edit:nil];
+        [specs addObject:respring];
 
         _specifiers = specs;
     }
