@@ -62,12 +62,10 @@
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         if (!fallback) fallback = w;
         NSString *cls = NSStringFromClass(w.class);
-        // iOS 17 状态栏窗口常见类名
         if ([cls isEqualToString:@"UIStatusBarWindow"]) return w;
         if ([cls isEqualToString:@"_UIStatusBarWindow"]) return w;
         if ([cls containsString:@"StatusBarWindow"]) return w;
         if ([cls containsString:@"StatusBar"]) {
-            // 高度 40 以内的更可能是状态栏
             if (w.bounds.size.height <= 60 && w.bounds.size.height > 0) return w;
         }
     }
@@ -146,15 +144,12 @@
 
         BOOL isRunning = NO;
 
-        // 方式 1: isRunning
         if ([app respondsToSelector:@selector(isRunning)]) {
             isRunning = [app performSelector:@selector(isRunning)];
         }
-        // 方式 2: isRunningOrSuspended
         if (!isRunning && [app respondsToSelector:NSSelectorFromString(@"isRunningOrSuspended")]) {
             isRunning = [app performSelector:NSSelectorFromString(@"isRunningOrSuspended")];
         }
-        // 方式 3: backgroundState（0=未运行, 1=启动中, 2=前台, 3=后台）
         if (!isRunning && [app respondsToSelector:NSSelectorFromString(@"backgroundState")]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
@@ -222,7 +217,7 @@
     CGFloat spacing = 4;
     CGFloat x = 0;
 
-    // 调试模式：如果列表空，先显示设置图标，验证容器是否正常
+    // 调试模式：列表为空时显示设置图标，验证容器是否正常
     NSArray *bidsToShow = self.visibleBundleIDs;
     if (bidsToShow.count == 0) {
         bidsToShow = @[@"com.apple.Preferences"];
@@ -241,7 +236,7 @@
         x += size + spacing;
     }
 
-    UIWindow *sbw = self.container.superview;
+    UIWindow *sbw = [self statusBarWindow];
     if (!sbw) return;
     CGFloat winW = sbw.bounds.size.width;
     CGFloat winH = sbw.bounds.size.height;
