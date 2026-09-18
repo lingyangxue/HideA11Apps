@@ -19,19 +19,16 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
-    // 左侧边缘
     UIScreenEdgePanGestureRecognizer *leftEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftEdgePan:)];
     leftEdge.edges = UIRectEdgeLeft;
     leftEdge.cancelsTouchesInView = NO;
     [view addGestureRecognizer:leftEdge];
 
-    // 右侧边缘
     UIScreenEdgePanGestureRecognizer *rightEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRightEdgePan:)];
     rightEdge.edges = UIRectEdgeRight;
     rightEdge.cancelsTouchesInView = NO;
     [view addGestureRecognizer:rightEdge];
 
-    // 普通 Pan 兜底
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
     pan.minimumNumberOfTouches = 1;
     pan.maximumNumberOfTouches = 1;
@@ -68,7 +65,7 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     }
 }
 
-// 左侧边缘下滑
+// 左侧下滑 → 切换（隐藏 ↔ 恢复）
 - (void)handleLeftEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled || !m.leftDownEnabled) return;
@@ -85,12 +82,10 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (yRatio < m.zoneTopRatio) return;
     if (yRatio > m.zoneBottomRatio) return;
 
-    // 同时开：按下滑方向选（左侧下滑通常触发恢复）
-    if (m.leftDownRecoverEnabled) [m showAllNow];
-    else if (m.leftDownHideEnabled) [m hideAllNow];
+    [m toggleHidden];
 }
 
-// 右侧边缘下滑
+// 右侧下滑 → 切换（隐藏 ↔ 恢复）
 - (void)handleRightEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled || !m.rightDownEnabled) return;
@@ -107,11 +102,10 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (yRatio < m.zoneTopRatio) return;
     if (yRatio > m.zoneBottomRatio) return;
 
-    if (m.rightDownRecoverEnabled) [m showAllNow];
-    else if (m.rightDownHideEnabled) [m hideAllNow];
+    [m toggleHidden];
 }
 
-// 普通 Pan 兜底：判断起点在左侧还是右侧
+// 普通 Pan 兜底
 - (void)handlePan:(UIPanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled) return;
@@ -131,16 +125,13 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     // 起点在左侧
     if (startLoc.x <= m.zoneWidth) {
         if (!m.leftDownEnabled) return;
-        if (m.leftDownRecoverEnabled) [m showAllNow];
-        else if (m.leftDownHideEnabled) [m hideAllNow];
+        [m toggleHidden];
         return;
     }
-
     // 起点在右侧
     if (startLoc.x >= size.width - m.zoneWidth) {
         if (!m.rightDownEnabled) return;
-        if (m.rightDownRecoverEnabled) [m showAllNow];
-        else if (m.rightDownHideEnabled) [m hideAllNow];
+        [m toggleHidden];
         return;
     }
 }
