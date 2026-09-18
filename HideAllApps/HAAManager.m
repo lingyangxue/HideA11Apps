@@ -44,7 +44,14 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     self.statusBarSingleTapEnabled  = [d boolForKey:@"statusBarSingleTapEnabled"];
     self.statusBarDoubleTapEnabled  = [d boolForKey:@"statusBarDoubleTapEnabled"];
     self.shakeEnabled               = [d boolForKey:@"shakeEnabled"];
+
     self.leftDownEnabled            = [d boolForKey:@"leftDownEnabled"];
+    self.leftDownRecoverEnabled     = [d boolForKey:@"leftDownRecoverEnabled"];
+    self.leftDownHideEnabled        = [d boolForKey:@"leftDownHideEnabled"];
+
+    self.rightDownEnabled           = [d boolForKey:@"rightDownEnabled"];
+    self.rightDownRecoverEnabled    = [d boolForKey:@"rightDownRecoverEnabled"];
+    self.rightDownHideEnabled       = [d boolForKey:@"rightDownHideEnabled"];
 
     id topV = [d objectForKey:@"zoneTopRatio"];
     self.zoneTopRatio = topV ? [topV doubleValue] : 0.15;
@@ -181,21 +188,31 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
         if (v.tag == 99991) [v removeFromSuperview];
     }
 
-    UIView *border = [[UIView alloc] init];
-    border.tag = 99991;
-    border.backgroundColor = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:0.35];
-    border.layer.borderColor = [UIColor redColor].CGColor;
-    border.layer.borderWidth = 3.0;
-    border.userInteractionEnabled = NO;
-
-    CGFloat x = 0;
     CGFloat y = size.height * self.zoneTopRatio;
-    CGFloat w = self.zoneWidth;
     CGFloat h = size.height * (self.zoneBottomRatio - self.zoneTopRatio);
 
-    border.frame = CGRectMake(x, y, w, h);
-    [host addSubview:border];
-    [host bringSubviewToFront:border];
+    // 左侧区域
+    UIView *leftBorder = [[UIView alloc] init];
+    leftBorder.tag = 99991;
+    leftBorder.backgroundColor = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:0.25];
+    leftBorder.layer.borderColor = [UIColor redColor].CGColor;
+    leftBorder.layer.borderWidth = 3.0;
+    leftBorder.userInteractionEnabled = NO;
+    leftBorder.frame = CGRectMake(0, y, self.zoneWidth, h);
+    [host addSubview:leftBorder];
+
+    // 右侧区域
+    UIView *rightBorder = [[UIView alloc] init];
+    rightBorder.tag = 99991;
+    rightBorder.backgroundColor = [UIColor colorWithRed:0.0 green:0.0 blue:1.0 alpha:0.25];
+    rightBorder.layer.borderColor = [UIColor blueColor].CGColor;
+    rightBorder.layer.borderWidth = 3.0;
+    rightBorder.userInteractionEnabled = NO;
+    rightBorder.frame = CGRectMake(size.width - self.zoneWidth, y, self.zoneWidth, h);
+    [host addSubview:rightBorder];
+
+    [host bringSubviewToFront:leftBorder];
+    [host bringSubviewToFront:rightBorder];
 }
 
 - (void)hideDebugBorder {
