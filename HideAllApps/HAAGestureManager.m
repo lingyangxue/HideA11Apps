@@ -36,20 +36,23 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 }
 
 - (void)installGesturesIntoSpringBoard {
-    // 只给 SpringBoard 主屏窗口加手势，不给别的 App 窗口加
+    // 只给 SBIconController 的 view 加手势，别的 App 不加
     Class iconCtrlClass = NSClassFromString(@"SBIconController");
-    if (iconCtrlClass) {
-        id shared = nil;
-        if ([iconCtrlClass respondsToSelector:@selector(sharedInstance)]) {
-            shared = [iconCtrlClass performSelector:@selector(sharedInstance)];
-        }
-        if (shared && [shared respondsToSelector:@selector(view)]) {
-            UIView *v = [shared performSelector:@selector(view)];
-            if (v && v.window) {
-                [self setupGesturesOnView:v.window];
-            }
-        }
+    if (!iconCtrlClass) return;
+
+    id shared = nil;
+    if ([iconCtrlClass respondsToSelector:@selector(sharedInstance)]) {
+        shared = [iconCtrlClass performSelector:@selector(sharedInstance)];
     }
+    if (!shared) return;
+
+    UIView *iconView = nil;
+    if ([shared respondsToSelector:@selector(view)]) {
+        iconView = [shared performSelector:@selector(view)];
+    }
+    if (!iconView) return;
+
+    [self setupGesturesOnView:iconView];
 }
 
 - (BOOL)inYZone:(CGFloat)y height:(CGFloat)h {
