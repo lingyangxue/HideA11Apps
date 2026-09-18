@@ -31,20 +31,21 @@
     self.hiddenSet = [NSMutableSet setWithSet:[NSSet setWithArray:ids]];
     self.searchText = @"";
 
-    CGFloat width = self.view.bounds.size.width;
+    // 用屏幕宽度，避免 view.bounds 在 viewDidLoad 时还没算好
+    CGFloat screenWidth = [UIScreen mainScreen].bounds.size.width;
 
-    // 顶部搜索栏容器
-    UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, width, 60)];
+    UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, screenWidth, 70)];
     headerView.backgroundColor = [UIColor clearColor];
+    headerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
 
-    // 居中的大搜索框
-    self.searchField = [[UITextField alloc] initWithFrame:CGRectMake(20, 10, width - 40, 40)];
+    self.searchField = [[UITextField alloc] initWithFrame:CGRectMake(20, 15, screenWidth - 40, 40)];
     self.searchField.placeholder = @"搜索 App";
     self.searchField.font = [UIFont systemFontOfSize:17];
     self.searchField.borderStyle = UITextBorderStyleRoundedRect;
     self.searchField.clearButtonMode = UITextFieldViewModeWhileEditing;
     self.searchField.autocorrectionType = UITextAutocorrectionTypeNo;
     self.searchField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    self.searchField.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.searchField addTarget:self action:@selector(searchChanged:) forControlEvents:UIControlEventEditingChanged];
     [headerView addSubview:self.searchField];
 
