@@ -18,12 +18,11 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
-    // 向下滑识别器（左、右各一个，方向都是向下）
-    UISwipeGestureRecognizer *swipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeDown:)];
-    swipe.direction = UISwipeGestureRecognizerDirectionDown;
-    swipe.numberOfTouchesRequired = 1;
-    swipe.cancelsTouchesInView = NO;
-    [view addGestureRecognizer:swipe];
+    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
+    pan.minimumNumberOfTouches = 1;
+    pan.maximumNumberOfTouches = 1;
+    pan.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:pan];
 }
 
 - (void)installGesturesIntoSpringBoard {
@@ -56,24 +55,31 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     return YES;
 }
 
-- (void)handleSwipeDown:(UISwipeGestureRecognizer *)gr {
+- (void)handlePan:(UIPanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled) return;
+    if (gr.state != UIGestureRecognizerStateEnded) return;
 
-    CGPoint loc = [gr locationInView:gr.view];
+    CGPoint startLoc = [gr locationInView:gr.view];
+    CGPoint t = [gr translationInView:gr.view];
     CGSize size = gr.view.bounds.size;
 
-    // 起点必须在屏幕顶部 15% 以下，避免误触
-    if (![self inYZone:loc.y height:size.height]) return;
+    // 向下滑 + 垂直分量大于水平
+    if (t.y < 30) return;
+    if (fabs(t.y) < fabs(t.x)) return;
 
-    // 左侧
-    if (loc.x <= m.zoneWidth) {
+    // y 位置在设定区域
+    if (![self inYZone:startLoc.y height:size.height]) return;
+
+    // 关键：起点必须在屏幕边缘 30pt 内
+    // 左边缘 30pt 内
+    if (startLoc.x <= 30) {
         if (!m.leftDownEnabled) return;
         [m toggleHidden];
         return;
     }
-    // 右侧
-    if (loc.x >= size.width - m.zoneWidth) {
+    // 右边缘 30pt 内
+    if (startLoc.x >= size.width - 30) {
         if (!m.rightDownEnabled) return;
         [m toggleHidden];
         return;
