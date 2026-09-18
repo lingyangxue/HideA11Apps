@@ -27,4 +27,5 @@ extern NSString * const kHAAPrefsChangedDarwinNotification;
 - (void)startRefreshTimer;
 - (void)stopRefreshTimer;
 - (void)showDebugBorder;
+- (void)hideDebugBorder;
 @end
