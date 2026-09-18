@@ -96,13 +96,20 @@
 %end
 
 %ctor {
-    // 监听注销通知，SpringBoard 收到后自己退出
+    // 监听注销通知
     static int respringToken = 0;
     notify_register_dispatch("com.yourname.hideallapps/respring",
                              &respringToken,
                              dispatch_get_main_queue(), ^(int t) {
-        NSLog(@"[HideAllApps] received respring notification, exiting...");
         exit(0);
+    });
+
+    // 监听调试边框通知
+    static int borderToken = 0;
+    notify_register_dispatch("com.yourname.hideallapps/showBorder",
+                             &borderToken,
+                             dispatch_get_main_queue(), ^(int t) {
+        [[HAAManager sharedManager] showDebugBorder];
     });
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
