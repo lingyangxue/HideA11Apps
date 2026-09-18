@@ -10,6 +10,7 @@ extern NSString * const kHAAPrefsChangedDarwinNotification;
 @property (nonatomic, assign) BOOL shakeEnabled;
 @property (nonatomic, assign) BOOL leftDownEnabled;
 @property (nonatomic, assign) BOOL rightDownEnabled;
+@property (nonatomic, assign) BOOL hideStatusBar;   // ← 新增：状态栏独立开关
 @property (nonatomic, assign) CGFloat zoneTopRatio;
 @property (nonatomic, assign) CGFloat zoneBottomRatio;
 @property (nonatomic, assign) CGFloat zoneWidth;
