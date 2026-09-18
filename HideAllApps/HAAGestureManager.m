@@ -19,11 +19,19 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
-    UIScreenEdgePanGestureRecognizer *edge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleEdgePan:)];
-    edge.edges = UIRectEdgeLeft;
-    edge.cancelsTouchesInView = NO;
-    [view addGestureRecognizer:edge];
+    // 左侧边缘
+    UIScreenEdgePanGestureRecognizer *leftEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftEdgePan:)];
+    leftEdge.edges = UIRectEdgeLeft;
+    leftEdge.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:leftEdge];
 
+    // 右侧边缘
+    UIScreenEdgePanGestureRecognizer *rightEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRightEdgePan:)];
+    rightEdge.edges = UIRectEdgeRight;
+    rightEdge.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:rightEdge];
+
+    // 普通 Pan 兜底
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
     pan.minimumNumberOfTouches = 1;
     pan.maximumNumberOfTouches = 1;
@@ -60,44 +68,80 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     }
 }
 
-- (void)handleEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
+// 左侧边缘下滑
+- (void)handleLeftEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled || !m.leftDownEnabled) return;
+    if (gr.state != UIGestureRecognizerStateEnded) return;
 
-    if (gr.state == UIGestureRecognizerStateEnded) {
-        CGPoint t = [gr translationInView:gr.view];
-        CGSize size = gr.view.bounds.size;
-        CGPoint loc = [gr locationInView:gr.view];
+    CGPoint t = [gr translationInView:gr.view];
+    CGSize size = gr.view.bounds.size;
+    CGPoint loc = [gr locationInView:gr.view];
 
-        if (t.y < 30) return;
-        if (fabs(t.y) < fabs(t.x)) return;
+    if (t.y < 30) return;
+    if (fabs(t.y) < fabs(t.x)) return;
 
-        CGFloat yRatio = loc.y / size.height;
-        if (yRatio < m.zoneTopRatio) return;
-        if (yRatio > m.zoneBottomRatio) return;
+    CGFloat yRatio = loc.y / size.height;
+    if (yRatio < m.zoneTopRatio) return;
+    if (yRatio > m.zoneBottomRatio) return;
 
-        [m showAllNow];
-    }
+    // 同时开：按下滑方向选（左侧下滑通常触发恢复）
+    if (m.leftDownRecoverEnabled) [m showAllNow];
+    else if (m.leftDownHideEnabled) [m hideAllNow];
 }
 
+// 右侧边缘下滑
+- (void)handleRightEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
+    HAAManager *m = [HAAManager sharedManager];
+    if (!m.enabled || !m.rightDownEnabled) return;
+    if (gr.state != UIGestureRecognizerStateEnded) return;
+
+    CGPoint t = [gr translationInView:gr.view];
+    CGSize size = gr.view.bounds.size;
+    CGPoint loc = [gr locationInView:gr.view];
+
+    if (t.y < 30) return;
+    if (fabs(t.y) < fabs(t.x)) return;
+
+    CGFloat yRatio = loc.y / size.height;
+    if (yRatio < m.zoneTopRatio) return;
+    if (yRatio > m.zoneBottomRatio) return;
+
+    if (m.rightDownRecoverEnabled) [m showAllNow];
+    else if (m.rightDownHideEnabled) [m hideAllNow];
+}
+
+// 普通 Pan 兜底：判断起点在左侧还是右侧
 - (void)handlePan:(UIPanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled || !m.leftDownEnabled) return;
+    if (!m.enabled) return;
+    if (gr.state != UIGestureRecognizerStateEnded) return;
 
     CGPoint startLoc = [gr locationInView:gr.view];
     CGPoint t = [gr translationInView:gr.view];
     CGSize size = gr.view.bounds.size;
 
-    if (gr.state == UIGestureRecognizerStateEnded) {
-        if (startLoc.x > m.zoneWidth) return;
-        if (t.y < 30) return;
-        if (fabs(t.y) < fabs(t.x)) return;
+    if (t.y < 30) return;
+    if (fabs(t.y) < fabs(t.x)) return;
 
-        CGFloat yRatio = startLoc.y / size.height;
-        if (yRatio < m.zoneTopRatio) return;
-        if (yRatio > m.zoneBottomRatio) return;
+    CGFloat yRatio = startLoc.y / size.height;
+    if (yRatio < m.zoneTopRatio) return;
+    if (yRatio > m.zoneBottomRatio) return;
 
-        [m showAllNow];
+    // 起点在左侧
+    if (startLoc.x <= m.zoneWidth) {
+        if (!m.leftDownEnabled) return;
+        if (m.leftDownRecoverEnabled) [m showAllNow];
+        else if (m.leftDownHideEnabled) [m hideAllNow];
+        return;
+    }
+
+    // 起点在右侧
+    if (startLoc.x >= size.width - m.zoneWidth) {
+        if (!m.rightDownEnabled) return;
+        if (m.rightDownRecoverEnabled) [m showAllNow];
+        else if (m.rightDownHideEnabled) [m hideAllNow];
+        return;
     }
 }
 
