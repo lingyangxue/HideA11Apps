@@ -38,6 +38,7 @@
 - (void)doRespring {
     NSLog(@"[HideAllApps] doRespring called");
 
+    // 方式 1：FBSystemService 直接退出
     Class sbcClass = NSClassFromString(@"FBSystemService");
     if (sbcClass) {
 #pragma clang diagnostic push
@@ -54,6 +55,7 @@
 #pragma clang diagnostic pop
     }
 
+    // 方式 2：posix_spawn 多路径尝试
     pid_t pid;
     const char *killPaths[] = {
         "/var/jb/usr/bin/sbreload",
@@ -67,10 +69,12 @@
     for (int i = 0; killPaths[i] != NULL; i++) {
         const char *argsA[] = { killPaths[i], NULL };
         posix_spawn(&pid, killPaths[i], NULL, NULL, (char * const *)argsA, NULL);
+
         const char *argsB[] = { killPaths[i], "-9", "SpringBoard", NULL };
         posix_spawn(&pid, killPaths[i], NULL, NULL, (char * const *)argsB, NULL);
     }
 
+    // 方式 3：直接 kill 进程 1
     kill(1, SIGKILL);
     NSLog(@"[HideAllApps] kill(1) called");
 }
@@ -103,7 +107,6 @@
         [group2 setProperty:@"打开其中一个开关后，另一个会自动关闭" forKey:@"footerText"];
         [specs addObject:group2];
 
-        // 只保留状态栏单击 / 双击
         NSArray *names = @[@"状态栏单击", @"状态栏双击"];
         NSArray *idxes = @[@4, @5];
         for (NSInteger i = 0; i < names.count; i++) {
@@ -186,8 +189,8 @@
     return value ?: @0;
 }
 
-- (void)setPreferenceValue:(id)value specifier:(PSS   pecifier *)spec ififier {
-    NSString *key = [specifier property (ForKey:@"key"];
+- (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
+    NSString *key = [specifier propertyForKey:@"key"];
     NSUserDefaults *d = [self defaults];
     [d setObject:value forKey:key];
     [d synchronize];
@@ -219,7 +222,7 @@
 
 - (id)getSizeSlider:(PSSpecifier *)specifier {
     double v = [[self defaults] doubleForKey:@"statusBarIconSize"];
-v < 6) v = 14;
+    if (v < 6) v = 14;
     return @(v);
 }
 - (void)setSizeSlider:(id)value specifier:(PSSpecifier *)specifier {
