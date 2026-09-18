@@ -3,7 +3,7 @@
 #import <UIKit/UIKit.h>
 
 NSString * const kHAASuiteName = @"com.yourname.hideallapps";
-NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps/prefsChanged";
+NSString * const kHAAPrefsChangedDarwinNotification = @"com.yname.hideallapps/prefsChanged";
 
 @interface HAAManager ()
 @property (nonatomic, assign) int notifyToken;
@@ -29,6 +29,9 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
                                  dispatch_get_main_queue(), ^(int token) {
             [weakSelf reload];
             [weakSelf refreshAllIconViews];
+            if (weakSelf.debugBorderEnabled) {
+                [weakSelf showDebugBorder];
+            }
         });
     }
     return self;
@@ -40,14 +43,23 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 
 - (void)reload {
     NSUserDefaults *d = [self defaults];
-    self.enabled          = [d boolForKey:@"enabled"];
-    self.gestureType      = [d integerForKey:@"gestureType"];
-    self.shakeEnabled     = [d boolForKey:@"shakeEnabled"];
-    self.leftDownEnabled  = [d boolForKey:@"leftDownEnabled"];
-    self.leftDownZone     = [d integerForKey:@"leftDownZone"];
-    self.hideAll          = [d boolForKey:@"hideAll"];
-    NSArray *arr          = [d arrayForKey:@"hiddenBundleIDs"] ?: @[];
-    self.hiddenBundleIDs  = [NSSet setWithArray:arr];
+    self.enabled                    = [d boolForKey:@"enabled"];
+    self.statusBarSingleTapEnabled  = [d boolForKey:@"statusBarSingleTapEnabled"];
+    self.statusBarDoubleTapEnabled  = [d boolForKey:@"statusBarDoubleTapEnabled"];
+    self.shakeEnabled               = [d boolForKey:@"shakeEnabled"];
+    self.leftDownEnabled            = [d boolForKey:@"leftDownEnabled"];
+
+    id topV = [d objectForKey:@"zoneTopRatio"];
+    self.zoneTopRatio = topV ? [topV doubleValue] : 0.15;
+    id botV = [d objectForKey:@"zoneBottomRatio"];
+    self.zoneBottomRatio = botV ? [botV doubleValue] : 0.85;
+    id widV = [d objectForKey:@"zoneWidth"];
+    self.zoneWidth = widV ? [widV doubleValue] : 150.0;
+
+    self.debugBorderEnabled         = [d boolForKey:@"debugBorderEnabled"];
+    self.hideAll                    = [d boolForKey:@"hideAll"];
+    NSArray *arr                    = [d arrayForKey:@"hiddenBundleIDs"] ?: @[];
+    self.hiddenBundleIDs            = [NSSet setWithArray:arr];
 
     if (self.hideAll) [self startRefreshTimer];
     else [self stopRefreshTimer];
@@ -68,10 +80,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 
 - (void)hideAllNow {
     if (!self.enabled) return;
-    if (self.hideAll) {
-        [self refreshAllIconViews];
-        return;
-    }
+    if (self.hideAll) { [self refreshAllIconViews]; return; }
     self.hideAll = YES;
     NSUserDefaults *d = [self defaults];
     [d setBool:YES forKey:@"hideAll"];
@@ -83,10 +92,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 
 - (void)showAllNow {
     if (!self.enabled) return;
-    if (!self.hideAll) {
-        [self refreshAllIconViews];
-        return;
-    }
+    if (!self.hideAll) { [self refreshAllIconViews]; return; }
     self.hideAll = NO;
     NSUserDefaults *d = [self defaults];
     [d setBool:NO forKey:@"hideAll"];
@@ -115,7 +121,6 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 - (void)applyHiddenStateToIconView:(id)iconView {
     if (!iconView) return;
     if (![iconView isKindOfClass:[UIView class]]) return;
-
     UIView *view = (UIView *)iconView;
     BOOL hide = NO;
     id icon = nil;
@@ -133,13 +138,9 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
                 bundleID = [app performSelector:@selector(bundleIdentifier)];
             }
         }
-        if (!bundleID && self.enabled && self.hideAll) {
-            hide = YES;
-        } else if (bundleID) {
-            hide = [self shouldHideBundleID:bundleID];
-        }
+        if (!bundleID && self.enabled && self.hideAll) hide = YES;
+        else if (bundleID) hide = [self shouldHideBundleID:bundleID];
     }
-
     view.alpha = hide ? 0.0 : 1.0;
     view.userInteractionEnabled = !hide;
 }
@@ -152,20 +153,56 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 
 - (void)_walkView:(UIView *)view depth:(int)depth {
     if (depth > 25) return;
-
     NSString *cls = NSStringFromClass(view.class);
     BOOL isIconClass = NO;
     if ([cls isEqualToString:@"SBIconView"]) isIconClass = YES;
     if ([cls isEqualToString:@"SBFolderIconView"]) isIconClass = YES;
     if ([cls containsString:@"IconView"] && [cls containsString:@"SB"]) isIconClass = YES;
+    if (isIconClass) [self applyHiddenStateToIconView:view];
+    for (UIView *sub in view.subviews) [self _walkView:sub depth:depth + 1];
+}
 
-    if (isIconClass) {
-        [self applyHiddenStateToIconView:view];
-    }
+#pragma mark - Debug Border
 
-    for (UIView *sub in view.subviews) {
-        [self _walkView:sub depth:depth + 1];
+- (void)showDebugBorder {
+    // 找到主屏窗口
+    UIView *host = nil;
+    for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        NSString *cls = NSStringFromClass(w.class);
+        if ([cls containsString:@"StatusBar"]) continue;
+        if ([cls containsString:@"Keyboard"]) continue;
+        if (w.bounds.size.width > 300 && w.bounds.size.height > 600) {
+            host = w;
+            break;
+        }
     }
+    if (!host) host = [UIApplication sharedApplication].keyWindow;
+    if (!host) return;
+
+    CGSize size = host.bounds.size;
+
+    // 调试边框：半透明彩色矩形
+    UIView *border = [[UIView alloc] init];
+    border.backgroundColor = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:0.25];
+    border.layer.borderColor = [UIColor redColor].CGColor;
+    border.layer.borderWidth = 2.0;
+    border.userInteractionEnabled = NO;
+    border.tag = 99991;
+
+    CGFloat x = 0;
+    CGFloat y = size.height * self.zoneTopRatio;
+    CGFloat w = self.zoneWidth;
+    CGFloat h = size.height * (self.zoneBottomRatio - self.zoneTopRatio);
+
+    border.frame = CGRectMake(x, y, w, h);
+    [host addSubview:border];
+    [host bringSubviewToFront:border];
+
+    // 3 秒后自动消失
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        [border removeFromSuperview];
+    });
 }
 
 @end
