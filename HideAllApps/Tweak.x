@@ -2,7 +2,6 @@
 #import <objc/runtime.h>
 #import "HAAManager.h"
 #import "HAAGestureManager.h"
-#import "HAAStatusBarIconManager.h"
 
 @interface SBIconController : UIViewController
 @end
@@ -38,16 +37,7 @@
     NSString *cls = NSStringFromClass(self.class);
     if ([cls containsString:@"StatusBar"]) {
         [[HAAGestureManager sharedManager] setupStatusBarGestures:self];
-        [[HAAStatusBarIconManager sharedManager] registerStatusBarWindow:self];
     }
-}
-%end
-
-// 关键：hook UIStatusBarWindow，把实例注册给 manager
-%hook UIStatusBarWindow
-- (void)didMoveToWindow {
-    %orig;
-    [[HAAStatusBarIconManager sharedManager] registerStatusBarWindow:self];
 }
 %end
 
