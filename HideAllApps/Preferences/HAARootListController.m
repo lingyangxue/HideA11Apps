@@ -1,9 +1,9 @@
 #import "HAARootListController.h"
 #import "HAAAppPickerController.h"
 #import <notify.h>
-our#import <spawn.hname>
+#import <spawn.h>
 
-#define kSuiteName @".hideallapps"
+#define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
 
 @implementation HAARootListController
@@ -16,7 +16,6 @@ our#import <spawn.hname>
     if (!_specifiers) {
         NSMutableArray *specs = [NSMutableArray array];
 
-        // ===== 功能开关 =====
         [specs addObject:[PSSpecifier groupSpecifierWithName:@"功能开关"]];
 
         PSSpecifier *enable = [PSSpecifier preferenceSpecifierNamed:@"启用插件" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
@@ -29,7 +28,6 @@ our#import <spawn.hname>
         [hideAll setProperty:@NO forKey:@"default"];
         [specs addObject:hideAll];
 
-        // ===== 隐藏手势 =====
         PSSpecifier *group2 = [PSSpecifier groupSpecifierWithName:@"隐藏手势（只能选一个）"];
         [group2 setProperty:@"打开其中一个开关后，另一个会自动关闭" forKey:@"footerText"];
         [specs addObject:group2];
@@ -41,7 +39,6 @@ our#import <spawn.hname>
             [specs addObject:sp];
         }
 
-        // ===== 摇一摇 =====
         PSSpecifier *group3 = [PSSpecifier groupSpecifierWithName:@"摇一摇（只隐藏，独立开关）"];
         [group3 setProperty:@"摇一摇手机只隐藏，恢复请用上面的状态栏双击手势" forKey:@"footerText"];
         [specs addObject:group3];
@@ -51,7 +48,6 @@ our#import <spawn.hname>
         [shake setProperty:@NO forKey:@"default"];
         [specs addObject:shake];
 
-        // ===== 状态栏图标 总开关 =====
         PSSpecifier *groupSB = [PSSpecifier groupSpecifierWithName:@"状态栏显示 App 图标"];
         [groupSB setProperty:@"打开过的 App 图标会显示在状态栏，App 完全退出后消失" forKey:@"footerText"];
         [specs addObject:groupSB];
@@ -61,7 +57,6 @@ our#import <spawn.hname>
         [sbEnable setProperty:@NO forKey:@"default"];
         [specs addObject:sbEnable];
 
-        // ===== 图标大小（互斥单选）=====
         PSSpecifier *groupSize = [PSSpecifier groupSpecifierWithName:@"图标大小"];
         [specs addObject:groupSize];
 
@@ -73,7 +68,6 @@ our#import <spawn.hname>
             [specs addObject:sp];
         }
 
-        // ===== 图标位置（互斥单选）=====
         PSSpecifier *groupPos = [PSSpecifier groupSpecifierWithName:@"图标位置（从左到右）"];
         [groupPos setProperty:@"注意：位置靠右会盖住信号/电量图标，建议选「偏右」或「居中」" forKey:@"footerText"];
         [specs addObject:groupPos];
@@ -86,7 +80,6 @@ our#import <spawn.hname>
             [specs addObject:sp];
         }
 
-        // ===== 单独隐藏的 App =====
         PSSpecifier *group4 = [PSSpecifier groupSpecifierWithName:@"单独选择要隐藏的 App"];
         [group4 setProperty:@"这些 App 会一直隐藏（即使未启用「隐藏所有」）" forKey:@"footerText"];
         [specs addObject:group4];
@@ -94,7 +87,6 @@ our#import <spawn.hname>
         PSSpecifier *pick = [PSSpecifier preferenceSpecifierNamed:@"选择隐藏的 App" target:self set:nil get:nil detail:[HAAAppPickerController class] cell:PSLinkCell edit:nil];
         [specs addObject:pick];
 
-        // ===== 注销 =====
         PSSpecifier *groupR = [PSSpecifier groupSpecifierWithName:@"重启桌面"];
         [groupR setProperty:@"点击下方按钮重启 SpringBoard，让插件完全生效" forKey:@"footerText"];
         [specs addObject:groupR];
@@ -108,7 +100,6 @@ our#import <spawn.hname>
     return _specifiers;
 }
 
-// ====== 通用读写 ======
 - (id)readPreferenceValue:(PSSpecifier *)specifier {
     NSString *key = [specifier propertyForKey:@"key"];
     id value = [[self defaults] objectForKey:key];
@@ -124,7 +115,6 @@ our#import <spawn.hname>
     notify_post(kDarwinNotification);
 }
 
-// ====== 手势互斥 ======
 - (id)gestureValue:(PSSpecifier *)specifier {
     NSInteger idx = [[specifier propertyForKey:@"gestureIndex"] integerValue];
     NSInteger cur = [[self defaults] integerForKey:@"gestureType"];
@@ -148,7 +138,6 @@ our#import <spawn.hname>
     [self reloadSpecifiers];
 }
 
-// ====== 大小互斥 ======
 - (id)sizeValue:(PSSpecifier *)specifier {
     NSInteger myVal = [[specifier propertyForKey:@"sizeValue"] integerValue];
     NSInteger cur = [[self defaults] integerForKey:@"statusBarIconSize"];
@@ -174,7 +163,6 @@ our#import <spawn.hname>
     [self reloadSpecifiers];
 }
 
-// ====== 位置互斥 ======
 - (id)posValue:(PSSpecifier *)specifier {
     double myVal = [[specifier propertyForKey:@"posValue"] doubleValue];
     double cur = [[[self defaults] objectForKey:@"statusBarIconPos"] doubleValue];
@@ -200,7 +188,6 @@ our#import <spawn.hname>
     [self reloadSpecifiers];
 }
 
-// ====== 注销 ======
 - (void)respringTapped {
     pid_t pid;
     const char *args[] = {"killall", "-9", "SpringBoard", NULL};
