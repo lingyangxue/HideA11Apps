@@ -58,7 +58,17 @@
     return [v doubleValue];
 }
 
+- (void)registerStatusBarWindow:(UIWindow *)win {
+    self.registeredStatusBarWin = win;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setupIfNeeded];
+        [self refresh];
+    });
+}
+
 - (UIWindow *)statusBarWindow {
+    if (self.registeredStatusBarWin) return self.registeredStatusBarWin;
+
     UIWindow *fallback = nil;
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         if (!fallback) fallback = w;
@@ -77,7 +87,10 @@
     UIWindow *sbw = [self statusBarWindow];
     if (!sbw) return;
 
-    if (self.container && self.container.superview == sbw) return;
+    if (self.container && self.container.superview == sbw) {
+        [sbw bringSubviewToFront:self.container];
+        return;
+    }
 
     [self.container removeFromSuperview];
     self.container = [[UIView alloc] init];
@@ -86,8 +99,6 @@
     [sbw addSubview:self.container];
     [sbw bringSubviewToFront:self.container];
 }
-
-#pragma mark - Polling
 
 - (void)updatePollingState {
     if ([self isEnabled]) {
@@ -118,43 +129,31 @@
     if (!appCtrlClass) return running;
 
     id shared = nil;
-    if ([appCtrlClass respondsToSelector:@selector(sharedInstance)]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+    if ([appCtrlClass respondsToSelector:@selector(sharedInstance)]) {
         shared = [appCtrlClass performSelector:@selector(sharedInstance)];
-#pragma clang diagnostic pop
     }
     if (!shared && [appCtrlClass respondsToSelector:@selector(sharedInstanceIfExists)]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         shared = [appCtrlClass performSelector:@selector(sharedInstanceIfExists)];
-#pragma clang diagnostic pop
     }
     if (!shared) return running;
 
     NSArray *apps = nil;
     if ([shared respondsToSelector:@selector(allApplications)]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         apps = [shared performSelector:@selector(allApplications)];
-#pragma clang diagnostic pop
     }
     if (!apps && [shared respondsToSelector:NSSelectorFromString(@"applications")]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         apps = [shared performSelector:NSSelectorFromString(@"applications")];
-#pragma clang diagnostic pop
     }
     if (!apps) return running;
 
     for (id app in apps) {
         NSString *bid = nil;
         if ([app respondsToSelector:@selector(bundleIdentifier)]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
             bid = [app performSelector:@selector(bundleIdentifier)];
-#pragma clang diagnostic pop
         }
+#pragma clang diagnostic pop
         if (!bid || bid.length == 0) continue;
         if ([bid hasPrefix:@"com.apple."]) continue;
 
@@ -192,8 +191,6 @@
         [self refresh];
     }
 }
-
-#pragma mark - Icon Rendering
 
 - (UIImage *)iconForBundleID:(NSString *)bundleID {
     if (!bundleID) return nil;
