@@ -28,7 +28,7 @@
         [hideAll setProperty:@NO forKey:@"default"];
         [specs addObject:hideAll];
 
-        // ===== 隐藏手势（互斥单选）=====
+        // ===== 隐藏手势 =====
         PSSpecifier *group2 = [PSSpecifier groupSpecifierWithName:@"隐藏手势（只能选一个）"];
         [group2 setProperty:@"打开其中一个开关后，另一个会自动关闭" forKey:@"footerText"];
         [specs addObject:group2];
@@ -40,7 +40,7 @@
             [specs addObject:sp];
         }
 
-        // ===== 摇一摇（独立开关，只隐藏）=====
+        // ===== 摇一摇 =====
         PSSpecifier *group3 = [PSSpecifier groupSpecifierWithName:@"摇一摇（只隐藏，独立开关）"];
         [group3 setProperty:@"摇一摇手机只隐藏，恢复请用上面的状态栏双击手势" forKey:@"footerText"];
         [specs addObject:group3];
@@ -49,6 +49,24 @@
         [shake setProperty:@"shakeEnabled" forKey:@"key"];
         [shake setProperty:@NO forKey:@"default"];
         [specs addObject:shake];
+
+        // ===== 状态栏图标 =====
+        PSSpecifier *groupSB = [PSSpecifier groupSpecifierWithName:@"状态栏显示 App 图标"];
+        [groupSB setProperty:@"打开过的 App 图标会显示在状态栏右侧，App 完全退出后消失" forKey:@"footerText"];
+        [specs addObject:groupSB];
+
+        PSSpecifier *sbEnable = [PSSpecifier preferenceSpecifierNamed:@"启用状态栏图标" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [sbEnable setProperty:@"statusBarIconEnabled" forKey:@"key"];
+        [sbEnable setProperty:@NO forKey:@"default"];
+        [specs addObject:sbEnable];
+
+        NSArray *sizeNames = @[@"小（10pt）", @"中（14pt）", @"大（18pt）"];
+        NSArray *sizeVals  = @[@10, @14, @18];
+        for (NSInteger i = 0; i < sizeNames.count; i++) {
+            PSSpecifier *sp = [PSSpecifier preferenceSpecifierNamed:sizeNames[i] target:self set:@selector(setSizeValue:specifier:) get:@selector(sizeValue:) detail:nil cell:PSSwitchCell edit:nil];
+            [sp setProperty:sizeVals[i] forKey:@"sizeValue"];
+            [specs addObject:sp];
+        }
 
         // ===== 单独隐藏的 App =====
         PSSpecifier *group4 = [PSSpecifier groupSpecifierWithName:@"单独选择要隐藏的 App"];
@@ -97,6 +115,24 @@
             [d synchronize];
             notify_post(kDarwinNotification);
         }
+    }
+    [self reloadSpecifiers];
+}
+
+- (id)sizeValue:(PSSpecifier *)specifier {
+    NSInteger myVal = [[specifier propertyForKey:@"sizeValue"] integerValue];
+    NSInteger cur = [[self defaults] integerForKey:@"statusBarIconSize"];
+    if (cur <= 0) cur = 14;
+    return @(myVal == cur);
+}
+
+- (void)setSizeValue:(id)value specifier:(PSSpecifier *)specifier {
+    NSInteger myVal = [[specifier propertyForKey:@"sizeValue"] integerValue];
+    NSUserDefaults *d = [self defaults];
+    if ([value boolValue]) {
+        [d setInteger:myVal forKey:@"statusBarIconSize"];
+        [d synchronize];
+        notify_post(kDarwinNotification);
     }
     [self reloadSpecifiers];
 }
