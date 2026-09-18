@@ -4,6 +4,9 @@
 
 static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 
+@interface HAAGestureManager () <UIGestureRecognizerDelegate>
+@end
+
 @implementation HAAGestureManager
 
 + (instancetype)sharedManager {
@@ -11,6 +14,31 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{ shared = [[HAAGestureManager alloc] init]; });
     return shared;
+}
+
+// 判断主屏是否可见
+- (BOOL)isHomeScreenVisible {
+    Class iconCtrlClass = NSClassFromString(@"SBIconController");
+    if (!iconCtrlClass) return NO;
+    id shared = nil;
+    if ([iconCtrlClass respondsToSelector:@selector(sharedInstance)]) {
+        shared = [iconCtrlClass performSelector:@selector(sharedInstance)];
+    }
+    if (!shared) return NO;
+
+    UIView *iconView = nil;
+    if ([shared respondsToSelector:@selector(view)]) {
+        iconView = [shared performSelector:@selector(view)];
+    }
+    if (!iconView) return NO;
+
+    // 检查这个 view 是否在窗口里 + 窗口是否 key
+    if (!iconView.window) return NO;
+    if (iconView.window.isKeyWindow == NO) return NO;
+    if (iconView.alpha < 0.01) return NO;
+    if (iconView.hidden) return NO;
+
+    return YES;
 }
 
 - (void)setupGesturesOnView:(UIView *)view {
@@ -22,7 +50,15 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     pan.minimumNumberOfTouches = 1;
     pan.maximumNumberOfTouches = 1;
     pan.cancelsTouchesInView = NO;
+    pan.delegate = self;
     [view addGestureRecognizer:pan];
+}
+
+#pragma mark - UIGestureRecognizerDelegate
+
+// 关键：只有主屏可见时才允许识别（在别的 App 里返回 NO）
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    return [self isHomeScreenVisible];
 }
 
 - (void)installGesturesIntoSpringBoard {
@@ -35,14 +71,6 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
         if (shared && [shared respondsToSelector:@selector(view)]) {
             UIView *v = [shared performSelector:@selector(view)];
             if (v) [self setupGesturesOnView:v];
-        }
-    }
-    for (UIWindow *w in [UIApplication sharedApplication].windows) {
-        NSString *cls = NSStringFromClass(w.class);
-        if ([cls containsString:@"StatusBar"]) continue;
-        if ([cls containsString:@"Keyboard"]) continue;
-        if (w.bounds.size.width > 300 && w.bounds.size.height > 600) {
-            [self setupGesturesOnView:w];
         }
     }
 }
@@ -64,21 +92,15 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     CGPoint t = [gr translationInView:gr.view];
     CGSize size = gr.view.bounds.size;
 
-    // 向下滑 + 垂直分量大于水平
     if (t.y < 30) return;
     if (fabs(t.y) < fabs(t.x)) return;
-
-    // y 位置在设定区域
     if (![self inYZone:startLoc.y height:size.height]) return;
 
-    // 关键：起点必须在屏幕边缘 30pt 内
-    // 左边缘 30pt 内
     if (startLoc.x <= 30) {
         if (!m.leftDownEnabled) return;
         [m toggleHidden];
         return;
     }
-    // 右边缘 30pt 内
     if (startLoc.x >= size.width - 30) {
         if (!m.rightDownEnabled) return;
         [m toggleHidden];
