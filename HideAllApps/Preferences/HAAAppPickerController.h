@@ -1,4 +1,4 @@
-#import <Preferences/PSListController.h>
+#import "HAARootListController.h"
 
 @interface HAAAppPickerController : PSListController
 @end
