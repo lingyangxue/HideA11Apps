@@ -31,17 +31,23 @@
     self.hiddenSet = [NSMutableSet setWithSet:[NSSet setWithArray:ids]];
     self.searchText = @"";
 
-    UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 50)];
+    CGFloat width = self.view.bounds.size.width;
+
+    // 顶部搜索栏容器
+    UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, width, 60)];
     headerView.backgroundColor = [UIColor clearColor];
 
-    self.searchField = [[UITextField alloc] initWithFrame:CGRectMake(15, 8, self.view.bounds.size.width - 30, 36)];
+    // 居中的大搜索框
+    self.searchField = [[UITextField alloc] initWithFrame:CGRectMake(20, 10, width - 40, 40)];
     self.searchField.placeholder = @"搜索 App";
+    self.searchField.font = [UIFont systemFontOfSize:17];
     self.searchField.borderStyle = UITextBorderStyleRoundedRect;
     self.searchField.clearButtonMode = UITextFieldViewModeWhileEditing;
     self.searchField.autocorrectionType = UITextAutocorrectionTypeNo;
     self.searchField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     [self.searchField addTarget:self action:@selector(searchChanged:) forControlEvents:UIControlEventEditingChanged];
     [headerView addSubview:self.searchField];
+
     self.table.tableHeaderView = headerView;
 
     [self loadApps];
