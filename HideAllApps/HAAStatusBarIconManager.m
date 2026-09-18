@@ -5,6 +5,13 @@
 #define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
 
+@interface HAAStatusBarIconManager ()
+@property (nonatomic, strong) UIView *container;
+@property (nonatomic, strong) NSMutableArray *iconViews;
+@property (nonatomic, strong) NSMutableArray *visibleBundleIDs;
+@property (nonatomic, strong) NSTimer *pollTimer;
+@end
+
 @implementation HAAStatusBarIconManager
 
 + (instancetype)sharedManager {
@@ -23,13 +30,12 @@
         __weak typeof(self) weakSelf = self;
         static int token = 0;
         notify_register_dispatch(kDarwinNotification, &token, dispatch_get_main_queue(), ^(int t) {
-            [weakSelf refresh];
             [weakSelf updatePollingState];
+            [weakSelf refresh];
         });
 
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
-            [weakSelf setupIfNeeded];
             [weakSelf updatePollingState];
             [weakSelf refresh];
         });
@@ -58,46 +64,23 @@
     return [v doubleValue];
 }
 
-- (void)registerStatusBarWindow:(UIWindow *)win {
-    self.registeredStatusBarWin = win;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self setupIfNeeded];
-        [self refresh];
-    });
-}
-
-- (UIWindow *)statusBarWindow {
-    if (self.registeredStatusBarWin) return self.registeredStatusBarWin;
-
-    UIWindow *fallback = nil;
-    for (UIWindow *w in [UIApplication sharedApplication].windows) {
-        if (!fallback) fallback = w;
-        NSString *cls = NSStringFromClass(w.class);
-        if ([cls isEqualToString:@"UIStatusBarWindow"]) return w;
-        if ([cls isEqualToString:@"_UIStatusBarWindow"]) return w;
-        if ([cls containsString:@"StatusBarWindow"]) return w;
-        if ([cls containsString:@"StatusBar"]) {
-            if (w.bounds.size.height <= 60 && w.bounds.size.height > 0) return w;
+// 找 SpringBoard 主屏 view 作为宿主
+- (UIView *)hostView {
+    Class iconCtrl = NSClassFromString(@"SBIconController");
+    if (iconCtrl) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        id shared = nil;
+        if ([iconCtrl respondsToSelector:@selector(sharedInstance)]) {
+            shared = [iconCtrl performSelector:@selector(sharedInstance)];
         }
+        if (shared && [shared respondsToSelector:@selector(view)]) {
+            UIView *v = [shared performSelector:@selector(view)];
+            if (v && v.window) return v;
+        }
+#pragma clang diagnostic pop
     }
-    return fallback;
-}
-
-- (void)setupIfNeeded {
-    UIWindow *sbw = [self statusBarWindow];
-    if (!sbw) return;
-
-    if (self.container && self.container.superview == sbw) {
-        [sbw bringSubviewToFront:self.container];
-        return;
-    }
-
-    [self.container removeFromSuperview];
-    self.container = [[UIView alloc] init];
-    self.container.backgroundColor = [UIColor clearColor];
-    self.container.userInteractionEnabled = NO;
-    [sbw addSubview:self.container];
-    [sbw bringSubviewToFront:self.container];
+    return [UIApplication sharedApplication].keyWindow;
 }
 
 - (void)updatePollingState {
@@ -111,14 +94,11 @@
         }
         [self pollRunningApps];
     } else {
-        [self stopPolling];
-    }
-}
-
-- (void)stopPolling {
-    if (self.pollTimer) {
-        [self.pollTimer invalidate];
-        self.pollTimer = nil;
+        if (self.pollTimer) {
+            [self.pollTimer invalidate];
+            self.pollTimer = nil;
+        }
+        [self teardown];
     }
 }
 
@@ -220,8 +200,21 @@
         [self teardown];
         return;
     }
-    [self setupIfNeeded];
-    if (!self.container) return;
+
+    UIView *host = [self hostView];
+    if (!host) return;
+
+    if (self.container && self.container.superview != host) {
+        [self.container removeFromSuperview];
+        self.container = nil;
+    }
+    if (!self.container) {
+        self.container = [[UIView alloc] init];
+        self.container.backgroundColor = [UIColor clearColor];
+        self.container.userInteractionEnabled = NO;
+        [host addSubview:self.container];
+    }
+    [host bringSubviewToFront:self.container];
 
     for (UIView *v in self.iconViews) [v removeFromSuperview];
     [self.iconViews removeAllObjects];
@@ -248,20 +241,15 @@
         x += size + spacing;
     }
 
-    UIWindow *sbw = [self statusBarWindow];
-    if (!sbw) return;
-    CGFloat winW = sbw.bounds.size.width;
-    CGFloat winH = sbw.bounds.size.height;
-
+    CGFloat hostW = host.bounds.size.width;
     CGFloat totalW = MAX(x - spacing, 1);
     CGFloat ratio = [self positionRatio];
-    CGFloat startX = (winW - totalW) * ratio;
-
+    CGFloat startX = (hostW - totalW) * ratio;
     if (startX < 4) startX = 4;
-    if (startX + totalW > winW - 4) startX = winW - totalW - 4;
+    if (startX + totalW > hostW - 4) startX = hostW - totalW - 4;
 
-    self.container.frame = CGRectMake(startX, (winH - size) / 2.0, totalW, size);
-    [sbw bringSubviewToFront:self.container];
+    // 贴到顶部（状态栏那一行，y = 8）
+    self.container.frame = CGRectMake(startX, 8, totalW, size);
 }
 
 - (void)teardown {
@@ -270,7 +258,6 @@
     [self.container removeFromSuperview];
     self.container = nil;
     [self.visibleBundleIDs removeAllObjects];
-    [self stopPolling];
 }
 
 @end
