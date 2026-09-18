@@ -19,7 +19,7 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
-    // 左侧向下滑 → 恢复显示
+    // 屏幕左侧向下滑 → 恢复显示 App
     UISwipeGestureRecognizer *leftDown = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftDown:)];
     leftDown.direction = UISwipeGestureRecognizerDirectionDown;
     leftDown.numberOfTouchesRequired = 1;
@@ -57,13 +57,19 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     return m.enabled && m.gestureType == type;
 }
 
-// 左侧向下滑 = 只恢复
+// 屏幕左侧向下滑 → 只恢复
 - (void)handleLeftDown:(UISwipeGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled) return;
-    // 必须从屏幕左侧 30pt 内开始滑
+
+    // 必须从屏幕左侧 80pt 范围内开始滑
     CGPoint loc = [gr locationInView:gr.view];
-    if (loc.x > 60) return;
+    CGSize size = gr.view.bounds.size;
+    if (loc.x > 80) return;
+
+    // 必须在屏幕中间偏下区域（y 在屏幕高度的 1/4 ~ 3/4 之间）
+    if (loc.y < size.height * 0.25 || loc.y > size.height * 0.75) return;
+
     [m showAllNow];
 }
 
