@@ -6,7 +6,6 @@
 
 #define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
-#define kActivationPassword @"HideAllApps2024"
 
 @interface HAAConfirmRespringController : PSListController
 @end
@@ -62,31 +61,6 @@
 - (NSArray *)specifiers {
     if (!_specifiers) {
         NSMutableArray *specs = [NSMutableArray array];
-
-        BOOL activated = [[self defaults] boolForKey:@"activated"];
-
-        if (!activated) {
-            PSSpecifier *groupAct = [PSSpecifier groupSpecifierWithName:@"激活插件"];
-            [groupAct setProperty:@"打开下方开关，输入密码后激活" forKey:@"footerText"];
-            [specs addObject:groupAct];
-
-            PSSpecifier *activate = [PSSpecifier preferenceSpecifierNamed:@"点击激活"
-                                                                   target:self
-                                                                      set:@selector(setActivateSwitch:specifier:)
-                                                                      get:@selector(getActivateSwitch:)
-                                                                   detail:nil
-                                                                     cell:PSSwitchCell
-                                                                     edit:nil];
-            [activate setProperty:@NO forKey:@"default"];
-            [specs addObject:activate];
-
-            _specifiers = specs;
-            return _specifiers;
-        }
-
-        PSSpecifier *group0 = [PSSpecifier groupSpecifierWithName:@"✅ 已激活"];
-        [group0 setProperty:@"插件已激活，可以使用所有功能" forKey:@"footerText"];
-        [specs addObject:group0];
 
         [specs addObject:[PSSpecifier groupSpecifierWithName:@"功能开关"]];
 
@@ -185,65 +159,6 @@
     }
     return _specifiers;
 }
-
-#pragma mark - Activation
-
-- (id)getActivateSwitch:(PSSpecifier *)specifier {
-    return @NO;
-}
-
-- (void)setActivateSwitch:(id)value specifier:(PSSpecifier *)specifier {
-    if (![value boolValue]) return;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
-        [self showActivationAlert];
-    });
-    [self reloadSpecifiers];
-}
-
-- (void)showActivationAlert {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"激活"
-                                                                   message:@"请输入激活密码"
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
-        tf.placeholder = @"激活密码";
-        tf.text = @"";
-    }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(UIAlertAction *a) {
-        [self reloadSpecifiers];
-    }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-        NSString *input = alert.textFields.firstObject.text ?: @"";
-        input = [input stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-
-        NSString *debugInfo = [NSString stringWithFormat:@"输入: [%@]\n预设: [%@]", input, kActivationPassword];
-
-        if ([input isEqualToString:kActivationPassword]) {
-            NSUserDefaults *d = [self defaults];
-            [d setBool:YES forKey:@"activated"];
-            [d synchronize];
-            notify_post(kDarwinNotification);
-            UIAlertController *ok = [UIAlertController alertControllerWithTitle:@"激活成功"
-                                                                        message:@"插件已激活，重启桌面后生效"
-                                                                 preferredStyle:UIAlertControllerStyleAlert];
-            [ok addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-                [self reloadSpecifiers];
-            }]];
-            [self presentViewController:ok animated:YES completion:nil];
-        } else {
-            UIAlertController *fail = [UIAlertController alertControllerWithTitle:@"激活失败"
-                                                                          message:debugInfo
-                                                                   preferredStyle:UIAlertControllerStyleAlert];
-            [fail addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-                [self reloadSpecifiers];
-            }]];
-            [self presentViewController:fail animated:YES completion:nil];
-        }
-    }]];
-    [self presentViewController:alert animated:YES completion:nil];
-}
-
-#pragma mark - 通用
 
 - (id)readPreferenceValue:(PSSpecifier *)specifier {
     NSString *key = [specifier propertyForKey:@"key"];
