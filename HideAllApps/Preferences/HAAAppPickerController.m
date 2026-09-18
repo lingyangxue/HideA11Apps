@@ -31,11 +31,10 @@
     self.hiddenSet = [NSMutableSet setWithSet:[NSSet setWithArray:ids]];
     self.searchText = @"";
 
-    // 顶部搜索框
     UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 50)];
-    headerView.backgroundColor = [UIColor clear];
-Color];
-    self.searchField = [[UITextField alloc]    initWithFrame:CGRectMake(15, 8, self Class.view.bounds.size.width - 30, 36)];
+    headerView.backgroundColor = [UIColor clearColor];
+
+    self.searchField = [[UITextField alloc] initWithFrame:CGRectMake(15, 8, self.view.bounds.size.width - 30, 36)];
     self.searchField.placeholder = @"搜索 App";
     self.searchField.borderStyle = UITextBorderStyleRoundedRect;
     self.searchField.clearButtonMode = UITextFieldViewModeWhileEditing;
@@ -54,7 +53,8 @@ Color];
 }
 
 - (void)loadApps {
-    NSMutableArray *result = [NSMutableArray array wsClass = NSClassFromString(@"LSApplicationWorkspace");
+    NSMutableArray *result = [NSMutableArray array];
+    Class wsClass = NSClassFromString(@"LSApplicationWorkspace");
     if (wsClass) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
