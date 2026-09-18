@@ -96,7 +96,7 @@
 %end
 
 %ctor {
-    // 监听注销通知
+    // 注销通知
     static int respringToken = 0;
     notify_register_dispatch("com.yourname.hideallapps/respring",
                              &respringToken,
@@ -104,12 +104,20 @@
         exit(0);
     });
 
-    // 监听调试边框通知
-    static int borderToken = 0;
+    // 显示调试边框
+    static int showBorderToken = 0;
     notify_register_dispatch("com.yourname.hideallapps/showBorder",
-                             &borderToken,
+                             &showBorderToken,
                              dispatch_get_main_queue(), ^(int t) {
         [[HAAManager sharedManager] showDebugBorder];
+    });
+
+    // 隐藏调试边框
+    static int hideBorderToken = 0;
+    notify_register_dispatch("com.yourname.hideallapps/hideBorder",
+                             &hideBorderToken,
+                             dispatch_get_main_queue(), ^(int t) {
+        [[HAAManager sharedManager] hideDebugBorder];
     });
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
