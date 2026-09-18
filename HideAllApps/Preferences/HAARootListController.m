@@ -97,17 +97,49 @@
         [shake setProperty:@NO forKey:@"default"];
         [specs addObject:shake];
 
-        PSSpecifier *groupLD = [PSSpecifier groupSpecifierWithName:@"左侧下滑恢复（独立开关）"];
-        [groupLD setProperty:@"在屏幕左侧向下滑，恢复显示所有 App" forKey:@"footerText"];
-        [specs addObject:groupLD];
+        // ===== 左侧下滑 =====
+        PSSpecifier *groupL = [PSSpecifier groupSpecifierWithName:@"左侧下滑（独立开关）"];
+        [groupL setProperty:@"在屏幕左侧向下滑" forKey:@"footerText"];
+        [specs addObject:groupL];
 
-        PSSpecifier *leftDown = [PSSpecifier preferenceSpecifierNamed:@"启用左侧下滑恢复" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
-        [leftDown setProperty:@"leftDownEnabled" forKey:@"key"];
-        [leftDown setProperty:@NO forKey:@"default"];
-        [specs addObject:leftDown];
+        PSSpecifier *leftEnable = [PSSpecifier preferenceSpecifierNamed:@"启用左侧下滑" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [leftEnable setProperty:@"leftDownEnabled" forKey:@"key"];
+        [leftEnable setProperty:@NO forKey:@"default"];
+        [specs addObject:leftEnable];
 
-        PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"左侧下滑触发区域（拖动调节）"];
-        [groupZone setProperty:@"调整后打开下面的「显示调试边框」可以看到区域范围" forKey:@"footerText"];
+        PSSpecifier *leftRecover = [PSSpecifier preferenceSpecifierNamed:@"左侧下滑 → 恢复显示" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [leftRecover setProperty:@"leftDownRecoverEnabled" forKey:@"key"];
+        [leftRecover setProperty:@NO forKey:@"default"];
+        [specs addObject:leftRecover];
+
+        PSSpecifier *leftHide = [PSSpecifier preferenceSpecifierNamed:@"左侧下滑 → 隐藏" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [leftHide setProperty:@"leftDownHideEnabled" forKey:@"key"];
+        [leftHide setProperty:@NO forKey:@"default"];
+        [specs addObject:leftHide];
+
+        // ===== 右侧下滑 =====
+        PSSpecifier *groupR2 = [PSSpecifier groupSpecifierWithName:@"右侧下滑（独立开关）"];
+        [groupR2 setProperty:@"在屏幕右侧向下滑" forKey:@"footerText"];
+        [specs addObject:groupR2];
+
+        PSSpecifier *rightEnable = [PSSpecifier preferenceSpecifierNamed:@"启用右侧下滑" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [rightEnable setProperty:@"rightDownEnabled" forKey:@"key"];
+        [rightEnable setProperty:@NO forKey:@"default"];
+        [specs addObject:rightEnable];
+
+        PSSpecifier *rightRecover = [PSSpecifier preferenceSpecifierNamed:@"右侧下滑 → 恢复显示" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [rightRecover setProperty:@"rightDownRecoverEnabled" forKey:@"key"];
+        [rightRecover setProperty:@NO forKey:@"default"];
+        [specs addObject:rightRecover];
+
+        PSSpecifier *rightHide = [PSSpecifier preferenceSpecifierNamed:@"右侧下滑 → 隐藏" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [rightHide setProperty:@"rightDownHideEnabled" forKey:@"key"];
+        [rightHide setProperty:@NO forKey:@"default"];
+        [specs addObject:rightHide];
+
+        // ===== 触发区域 =====
+        PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"下滑触发区域（拖动调节，左右通用）"];
+        [groupZone setProperty:@"调整后打开「显示调试边框」可以看到区域范围（左红右蓝）" forKey:@"footerText"];
         [specs addObject:groupZone];
 
         PSSpecifier *topSlider = [PSSpecifier preferenceSpecifierNamed:@"区域顶部位置" target:self set:@selector(setZoneTop:specifier:) get:@selector(getZoneTop:) detail:nil cell:PSSliderCell edit:nil];
@@ -122,7 +154,7 @@
         [bottomSlider setProperty:@0.85 forKey:@"default"];
         [specs addObject:bottomSlider];
 
-        PSSpecifier *widthSlider = [PSSpecifier preferenceSpecifierNamed:@"左边界宽度" target:self set:@selector(setZoneWidth:specifier:) get:@selector(getZoneWidth:) detail:nil cell:PSSliderCell edit:nil];
+        PSSpecifier *widthSlider = [PSSpecifier preferenceSpecifierNamed:@"左右边界宽度" target:self set:@selector(setZoneWidth:specifier:) get:@selector(getZoneWidth:) detail:nil cell:PSSliderCell edit:nil];
         [widthSlider setProperty:@50  forKey:@"min"];
         [widthSlider setProperty:@300 forKey:@"max"];
         [widthSlider setProperty:@150 forKey:@"default"];
@@ -132,45 +164,7 @@
         [debugBorder setProperty:@NO forKey:@"default"];
         [specs addObject:debugBorder];
 
-        PSSpecifier *groupSB = [PSSpecifier groupSpecifierWithName:@"状态栏显示 App 图标"];
-        [groupSB setProperty:@"显示最近打开的最多 6 个 App 图标" forKey:@"footerText"];
-        [specs addObject:groupSB];
-
-        PSSpecifier *sbEnable = [PSSpecifier preferenceSpecifierNamed:@"启用状态栏图标" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
-        [sbEnable setProperty:@"statusBarIconEnabled" forKey:@"key"];
-        [sbEnable setProperty:@NO forKey:@"default"];
-        [specs addObject:sbEnable];
-
-        PSSpecifier *groupSize = [PSSpecifier groupSpecifierWithName:@"图标大小（拖动滑块）"];
-        [groupSize setProperty:@"范围 8pt ~ 26pt" forKey:@"footerText"];
-        [specs addObject:groupSize];
-
-        PSSpecifier *sizeSlider = [PSSpecifier preferenceSpecifierNamed:@"大小" target:self set:@selector(setSizeSlider:specifier:) get:@selector(getSizeSlider:) detail:nil cell:PSSliderCell edit:nil];
-        [sizeSlider setProperty:@8  forKey:@"min"];
-        [sizeSlider setProperty:@26 forKey:@"max"];
-        [sizeSlider setProperty:@14 forKey:@"default"];
-        [specs addObject:sizeSlider];
-
-        PSSpecifier *groupPos = [PSSpecifier groupSpecifierWithName:@"水平位置（拖动滑块）"];
-        [groupPos setProperty:@"最左 ← → 最右" forKey:@"footerText"];
-        [specs addObject:groupPos];
-
-        PSSpecifier *posSlider = [PSSpecifier preferenceSpecifierNamed:@"水平" target:self set:@selector(setPosSlider:specifier:) get:@selector(getPosSlider:) detail:nil cell:PSSliderCell edit:nil];
-        [posSlider setProperty:@0.0 forKey:@"min"];
-        [posSlider setProperty:@1.0 forKey:@"max"];
-        [posSlider setProperty:@0.05 forKey:@"default"];
-        [specs addObject:posSlider];
-
-        PSSpecifier *groupY = [PSSpecifier groupSpecifierWithName:@"垂直位置（拖动滑块）"];
-        [groupY setProperty:@"0 = 最顶，24 = 往下。默认 8" forKey:@"footerText"];
-        [specs addObject:groupY];
-
-        PSSpecifier *ySlider = [PSSpecifier preferenceSpecifierNamed:@"垂直" target:self set:@selector(setYSlider:specifier:) get:@selector(getYSlider:) detail:nil cell:PSSliderCell edit:nil];
-        [ySlider setProperty:@0  forKey:@"min"];
-        [ySlider setProperty:@24 forKey:@"max"];
-        [ySlider setProperty:@8  forKey:@"default"];
-        [specs addObject:ySlider];
-
+        // ===== 单独隐藏的 App =====
         PSSpecifier *group4 = [PSSpecifier groupSpecifierWithName:@"单独选择要隐藏的 App"];
         [group4 setProperty:@"这些 App 会一直隐藏（即使未启用「隐藏所有」）" forKey:@"footerText"];
         [specs addObject:group4];
@@ -178,6 +172,7 @@
         PSSpecifier *pick = [PSSpecifier preferenceSpecifierNamed:@"选择隐藏的 App" target:self set:nil get:nil detail:[HAAAppPickerController class] cell:PSLinkCell edit:nil];
         [specs addObject:pick];
 
+        // ===== 注销 =====
         PSSpecifier *groupR = [PSSpecifier groupSpecifierWithName:@"重启桌面"];
         [groupR setProperty:@"点击下方按钮，会弹出确认对话框" forKey:@"footerText"];
         [specs addObject:groupR];
@@ -251,40 +246,6 @@
     } else {
         notify_post("com.yourname.hideallapps/hideBorder");
     }
-}
-
-- (id)getSizeSlider:(PSSpecifier *)specifier {
-    double v = [[self defaults] doubleForKey:@"statusBarIconSize"];
-    if (v < 6) v = 14;
-    return @(v);
-}
-- (void)setSizeSlider:(id)value specifier:(PSSpecifier *)specifier {
-    NSUserDefaults *d = [self defaults];
-    [d setDouble:[value doubleValue] forKey:@"statusBarIconSize"];
-    [d synchronize];
-    notify_post(kDarwinNotification);
-}
-
-- (id)getPosSlider:(PSSpecifier *)specifier {
-    id v = [[self defaults] objectForKey:@"statusBarIconPos"];
-    return v ?: @0.05;
-}
-- (void)setPosSlider:(id)value specifier:(PSSpecifier *)specifier {
-    NSUserDefaults *d = [self defaults];
-    [d setDouble:[value doubleValue] forKey:@"statusBarIconPos"];
-    [d synchronize];
-    notify_post(kDarwinNotification);
-}
-
-- (id)getYSlider:(PSSpecifier *)specifier {
-    id v = [[self defaults] objectForKey:@"statusBarIconY"];
-    return v ?: @8;
-}
-- (void)setYSlider:(id)value specifier:(PSSpecifier *)specifier {
-    NSUserDefaults *d = [self defaults];
-    [d setDouble:[value doubleValue] forKey:@"statusBarIconY"];
-    [d synchronize];
-    notify_post(kDarwinNotification);
 }
 
 @end
