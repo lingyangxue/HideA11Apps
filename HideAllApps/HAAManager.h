@@ -6,6 +6,11 @@ extern NSString * const kHAAPrefsChangedDarwinNotification;
 @interface HAAManager : NSObject
 @property (nonatomic, assign) BOOL enabled;
 @property (nonatomic, assign) BOOL hideAll;
+@property (nonatomic, assign) BOOL leftDownEnabled;
+@property (nonatomic, assign) BOOL rightDownEnabled;
+@property (nonatomic, assign) CGFloat zoneTopRatio;
+@property (nonatomic, assign) CGFloat zoneBottomRatio;
+@property (nonatomic, assign) CGFloat zoneWidth;
 @property (nonatomic, strong) NSSet *hiddenBundleIDs;
 @property (nonatomic, strong) NSTimer *refreshTimer;
 
@@ -19,4 +24,6 @@ extern NSString * const kHAAPrefsChangedDarwinNotification;
 - (void)applyHiddenStateToIconView:(id)iconView;
 - (void)startRefreshTimer;
 - (void)stopRefreshTimer;
+- (void)showDebugBorder;
+- (void)hideDebugBorder;
 @end
