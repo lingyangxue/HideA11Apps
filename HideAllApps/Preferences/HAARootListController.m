@@ -36,33 +36,48 @@
 }
 
 - (void)doRespring {
-    Class sbcClass = NSClassFromString(@"FBSystemService");
-    if (sbcClass) {
+    // 方式 1：respring 命令（rootHide 最常用）
+    pid_t pid;
+    const char *paths[] = {
+        "/var/jb/usr/bin/sbreload",
+        "/usr/bin/sbreload",
+        "/var/jb/usr/bin/respring",
+        "/usr/bin/respring",
+        NULL
+    };
+    for (int i = 0; paths[i] != NULL; i++) {
+        const char *args[] = { paths[i], NULL };
+        posix_spawn(&pid, paths[i], NULL, NULL, (char * const *)args, NULL);
+    }
+
+    // 方式 2：killall SpringBoard（多路径）
+    const char *killPaths[] = {
+        "/var/jb/usr/bin/killall",
+        "/usr/bin/killall",
+        NULL
+    };
+    for (int i = 0; killPaths[i] != NULL; i++) {
+        const char *args[] = { killPaths[i], "-9", "SpringBoard", NULL };
+        posix_spawn(&pid, killPaths[i], NULL, NULL, (char * const *)args, NULL);
+    }
+
+    // 方式 3：直接 kill 进程 1
+    kill(1, SIGKILL);
+
+    // 方式 4：BackBoardServices 退出 API
+    Class bbsClass = NSClassFromString(@"FBSystemService");
+    if (bbsClass) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         id shared = nil;
-        if ([sbcClass respondsToSelector:@selector(sharedInstance)]) {
-            shared = [sbcClass performSelector:@selector(sharedInstance)];
+        if ([bbsClass respondsToSelector:@selector(sharedInstance)]) {
+            shared = [bbsClass performSelector:@selector(sharedInstance)];
         }
         if (shared && [shared respondsToSelector:@selector(exitImmediately)]) {
             [shared performSelector:@selector(exitImmediately)];
-#pragma clang diagnostic pop
-            return;
         }
 #pragma clang diagnostic pop
     }
-
-    kill(1, SIGKILL);
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
-        pid_t pid;
-        const char *paths[] = { "/var/jb/usr/bin/killall", "/usr/bin/killall", NULL };
-        for (int i = 0; paths[i] != NULL; i++) {
-            const char *args[] = { paths[i], "-9", "SpringBoard", NULL };
-            posix_spawn(&pid, paths[i], NULL, NULL, (char * const *)args, NULL);
-        }
-    });
 }
 
 @end
