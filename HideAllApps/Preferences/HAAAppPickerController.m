@@ -31,7 +31,6 @@
     self.hiddenSet = [NSMutableSet setWithSet:[NSSet setWithArray:ids]];
     self.searchText = @"";
 
-    // 顶部搜索栏
     self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
     self.searchBar.delegate = self;
     self.searchBar.placeholder = @"搜索 App";
@@ -71,8 +70,6 @@
     [self reloadSpecifiers];
 }
 
-#pragma mark - UISearchBarDelegate
-
 - (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText {
     self.searchText = searchText ?: @"";
     [self applyFilter];
@@ -106,8 +103,6 @@
     }
     [self reloadSpecifiers];
 }
-
-#pragma mark - Specifiers
 
 - (NSArray *)specifiers {
     NSMutableArray *specs = [NSMutableArray array];
