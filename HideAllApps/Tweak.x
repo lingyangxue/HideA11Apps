@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import <notify.h>
 #import "HAAManager.h"
 #import "HAAGestureManager.h"
 #import "HAAStatusBarIconManager.h"
@@ -10,7 +11,6 @@
 @interface SPUIAppResultsViewController : UIViewController
 @end
 
-// 声明 SBApplication 的 bundleIdentifier 方法
 @interface SBApplication : NSObject
 - (NSString *)bundleIdentifier;
 @end
@@ -96,6 +96,15 @@
 %end
 
 %ctor {
+    // 监听注销通知，SpringBoard 收到后自己退出
+    static int respringToken = 0;
+    notify_register_dispatch("com.yourname.hideallapps/respring",
+                             &respringToken,
+                             dispatch_get_main_queue(), ^(int t) {
+        NSLog(@"[HideAllApps] received respring notification, exiting...");
+        exit(0);
+    });
+
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         [[HAAStatusBarIconManager sharedManager] refresh];
