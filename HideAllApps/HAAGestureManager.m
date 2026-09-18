@@ -36,11 +36,18 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 }
 
 - (void)installGesturesIntoSpringBoard {
-    for (UIWindow *w in [UIApplication sharedApplication].windows) {
-        NSString *cls = NSStringFromClass(w.class);
-        if ([cls containsString:@"StatusBar"]) continue;
-        if (w.bounds.size.width > 300 && w.bounds.size.height > 600) {
-            [self setupGesturesOnView:w];
+    // 只给 SpringBoard 主屏窗口加手势，不给别的 App 窗口加
+    Class iconCtrlClass = NSClassFromString(@"SBIconController");
+    if (iconCtrlClass) {
+        id shared = nil;
+        if ([iconCtrlClass respondsToSelector:@selector(sharedInstance)]) {
+            shared = [iconCtrlClass performSelector:@selector(sharedInstance)];
+        }
+        if (shared && [shared respondsToSelector:@selector(view)]) {
+            UIView *v = [shared performSelector:@selector(view)];
+            if (v && v.window) {
+                [self setupGesturesOnView:v.window];
+            }
         }
     }
 }
