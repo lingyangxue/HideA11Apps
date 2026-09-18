@@ -7,6 +7,9 @@
 #define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
 
+// ⚠️ 修改这里即可改变激活密码（跟 HAAManager.m 里必须一致）
+#define kActivationPassword @"HideAllApps2024"
+
 @interface HAAConfirmRespringController : PSListController
 @end
 
@@ -62,6 +65,27 @@
     if (!_specifiers) {
         NSMutableArray *specs = [NSMutableArray array];
 
+        BOOL activated = [[self defaults] boolForKey:@"activated"];
+
+        // ===== 激活区（未激活时显示） =====
+        if (!activated) {
+            PSSpecifier *groupAct = [PSSpecifier groupSpecifierWithName:@"激活插件"];
+            [groupAct setProperty:@"请输入激活密码后才能使用插件功能" forKey:@"footerText"];
+            [specs addObject:groupAct];
+
+            PSSpecifier *activate = [PSSpecifier preferenceSpecifierNamed:@"输入激活密码..." target:self set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
+            [activate setProperty:NSStringFromSelector(@selector(showActivationAlert)) forKey:@"action"];
+            [specs addObject:activate];
+
+            _specifiers = specs;
+            return _specifiers;
+        }
+
+        // ===== 已激活：显示所有功能 =====
+        PSSpecifier *group0 = [PSSpecifier groupSpecifierWithName:@"✅ 已激活"];
+        [group0 setProperty:@"插件已激活，可以使用所有功能" forKey:@"footerText"];
+        [specs addObject:group0];
+
         [specs addObject:[PSSpecifier groupSpecifierWithName:@"功能开关"]];
 
         PSSpecifier *enable = [PSSpecifier preferenceSpecifierNamed:@"启用插件" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
@@ -97,7 +121,6 @@
         [shake setProperty:@NO forKey:@"default"];
         [specs addObject:shake];
 
-        // ===== 左侧下滑 =====
         PSSpecifier *groupL = [PSSpecifier groupSpecifierWithName:@"左侧下滑（独立开关）"];
         [groupL setProperty:@"在屏幕左侧向下滑，切换隐藏/恢复显示" forKey:@"footerText"];
         [specs addObject:groupL];
@@ -107,7 +130,6 @@
         [leftEnable setProperty:@NO forKey:@"default"];
         [specs addObject:leftEnable];
 
-        // ===== 右侧下滑 =====
         PSSpecifier *groupR2 = [PSSpecifier groupSpecifierWithName:@"右侧下滑（独立开关）"];
         [groupR2 setProperty:@"在屏幕右侧向下滑，切换隐藏/恢复显示" forKey:@"footerText"];
         [specs addObject:groupR2];
@@ -117,7 +139,6 @@
         [rightEnable setProperty:@NO forKey:@"default"];
         [specs addObject:rightEnable];
 
-        // ===== 触发区域 =====
         PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"下滑触发区域（拖动调节，左右通用）"];
         [groupZone setProperty:@"调整后打开「显示调试边框」可以看到区域范围（左红右蓝）" forKey:@"footerText"];
         [specs addObject:groupZone];
@@ -144,7 +165,6 @@
         [debugBorder setProperty:@NO forKey:@"default"];
         [specs addObject:debugBorder];
 
-        // ===== 单独隐藏的 App =====
         PSSpecifier *group4 = [PSSpecifier groupSpecifierWithName:@"单独选择要隐藏的 App"];
         [group4 setProperty:@"这些 App 会一直隐藏（即使未启用「隐藏所有」）" forKey:@"footerText"];
         [specs addObject:group4];
@@ -152,7 +172,6 @@
         PSSpecifier *pick = [PSSpecifier preferenceSpecifierNamed:@"选择隐藏的 App" target:self set:nil get:nil detail:[HAAAppPickerController class] cell:PSLinkCell edit:nil];
         [specs addObject:pick];
 
-        // ===== 注销 =====
         PSSpecifier *groupR = [PSSpecifier groupSpecifierWithName:@"重启桌面"];
         [groupR setProperty:@"点击下方按钮，会弹出确认对话框" forKey:@"footerText"];
         [specs addObject:groupR];
@@ -164,6 +183,45 @@
     }
     return _specifiers;
 }
+
+#pragma mark - Activation
+
+- (void)showActivationAlert {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"激活"
+                                                                   message:@"请输入激活密码"
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+        tf.placeholder = @"激活密码";
+        tf.secureTextEntry = YES;
+    }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        NSString *input = alert.textFields.firstObject.text ?: @"";
+        if ([input isEqualToString:kActivationPassword]) {
+            NSUserDefaults *d = [self defaults];
+            [d setBool:YES forKey:@"activated"];
+            [d synchronize];
+            notify_post(kDarwinNotification);
+
+            UIAlertController *ok = [UIAlertController alertControllerWithTitle:@"激活成功"
+                                                                        message:@"插件已激活，重启桌面后生效"
+                                                                 preferredStyle:UIAlertControllerStyleAlert];
+            [ok addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+                [self reloadSpecifiers];
+            }]];
+            [self presentViewController:ok animated:YES completion:nil];
+        } else {
+            UIAlertController *fail = [UIAlertController alertControllerWithTitle:@"激活失败"
+                                                                          message:@"密码错误"
+                                                                   preferredStyle:UIAlertControllerStyleAlert];
+            [fail addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+            [self presentViewController:fail animated:YES completion:nil];
+        }
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+#pragma mark - 通用读写
 
 - (id)readPreferenceValue:(PSSpecifier *)specifier {
     NSString *key = [specifier propertyForKey:@"key"];
