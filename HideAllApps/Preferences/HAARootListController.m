@@ -99,7 +99,7 @@
 
         // ===== 左侧下滑 =====
         PSSpecifier *groupL = [PSSpecifier groupSpecifierWithName:@"左侧下滑（独立开关）"];
-        [groupL setProperty:@"在屏幕左侧向下滑" forKey:@"footerText"];
+        [groupL setProperty:@"在屏幕左侧向下滑，切换隐藏/恢复显示" forKey:@"footerText"];
         [specs addObject:groupL];
 
         PSSpecifier *leftEnable = [PSSpecifier preferenceSpecifierNamed:@"启用左侧下滑" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
@@ -107,35 +107,15 @@
         [leftEnable setProperty:@NO forKey:@"default"];
         [specs addObject:leftEnable];
 
-        PSSpecifier *leftRecover = [PSSpecifier preferenceSpecifierNamed:@"左侧下滑 → 恢复显示" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
-        [leftRecover setProperty:@"leftDownRecoverEnabled" forKey:@"key"];
-        [leftRecover setProperty:@NO forKey:@"default"];
-        [specs addObject:leftRecover];
-
-        PSSpecifier *leftHide = [PSSpecifier preferenceSpecifierNamed:@"左侧下滑 → 隐藏" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
-        [leftHide setProperty:@"leftDownHideEnabled" forKey:@"key"];
-        [leftHide setProperty:@NO forKey:@"default"];
-        [specs addObject:leftHide];
-
         // ===== 右侧下滑 =====
         PSSpecifier *groupR2 = [PSSpecifier groupSpecifierWithName:@"右侧下滑（独立开关）"];
-        [groupR2 setProperty:@"在屏幕右侧向下滑" forKey:@"footerText"];
+        [groupR2 setProperty:@"在屏幕右侧向下滑，切换隐藏/恢复显示" forKey:@"footerText"];
         [specs addObject:groupR2];
 
         PSSpecifier *rightEnable = [PSSpecifier preferenceSpecifierNamed:@"启用右侧下滑" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
         [rightEnable setProperty:@"rightDownEnabled" forKey:@"key"];
         [rightEnable setProperty:@NO forKey:@"default"];
         [specs addObject:rightEnable];
-
-        PSSpecifier *rightRecover = [PSSpecifier preferenceSpecifierNamed:@"右侧下滑 → 恢复显示" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
-        [rightRecover setProperty:@"rightDownRecoverEnabled" forKey:@"key"];
-        [rightRecover setProperty:@NO forKey:@"default"];
-        [specs addObject:rightRecover];
-
-        PSSpecifier *rightHide = [PSSpecifier preferenceSpecifierNamed:@"右侧下滑 → 隐藏" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
-        [rightHide setProperty:@"rightDownHideEnabled" forKey:@"key"];
-        [rightHide setProperty:@NO forKey:@"default"];
-        [specs addObject:rightHide];
 
         // ===== 触发区域 =====
         PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"下滑触发区域（拖动调节，左右通用）"];
