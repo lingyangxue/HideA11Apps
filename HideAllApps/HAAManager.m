@@ -162,8 +162,6 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 #pragma mark - Debug Border
 
 - (void)showDebugBorder {
-    NSLog(@"[HideAllApps] showDebugBorder called, top=%f bot=%f width=%f", self.zoneTopRatio, self.zoneBottomRatio, self.zoneWidth);
-
     UIView *host = nil;
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         NSString *cls = NSStringFromClass(w.class);
@@ -175,13 +173,9 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
         }
     }
     if (!host) host = [UIApplication sharedApplication].keyWindow;
-    if (!host) {
-        NSLog(@"[HideAllApps] showDebugBorder: no host view");
-        return;
-    }
+    if (!host) return;
 
     CGSize size = host.bounds.size;
-    NSLog(@"[HideAllApps] host size = %@", NSStringFromCGSize(size));
 
     for (UIView *v in host.subviews) {
         if (v.tag == 99991) [v removeFromSuperview];
@@ -200,14 +194,16 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     CGFloat h = size.height * (self.zoneBottomRatio - self.zoneTopRatio);
 
     border.frame = CGRectMake(x, y, w, h);
-    NSLog(@"[HideAllApps] border frame = %@", NSStringFromCGRect(border.frame));
     [host addSubview:border];
     [host bringSubviewToFront:border];
+}
 
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
-        [border removeFromSuperview];
-    });
+- (void)hideDebugBorder {
+    for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        for (UIView *v in w.subviews) {
+            if (v.tag == 99991) [v removeFromSuperview];
+        }
+    }
 }
 
 @end
