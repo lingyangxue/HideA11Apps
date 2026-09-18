@@ -10,6 +10,11 @@
 @interface SPUIAppResultsViewController : UIViewController
 @end
 
+// 声明 SBApplication 的 bundleIdentifier 方法
+@interface SBApplication : NSObject
+- (NSString *)bundleIdentifier;
+@end
+
 %hook SBIconView
 - (void)setIcon:(id)icon { %orig; [[HAAManager sharedManager] applyHiddenStateToIconView:self]; }
 - (void)didMoveToWindow { %orig; [[HAAManager sharedManager] applyHiddenStateToIconView:self]; }
@@ -20,7 +25,6 @@
 - (void)viewDidLoad {
     %orig;
     [[HAAGestureManager sharedManager] setupGesturesOnView:self.view];
-    // 关键：主动初始化状态栏图标管理器
     [[HAAStatusBarIconManager sharedManager] refresh];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
@@ -58,10 +62,7 @@
 %hook SBApplication
 - (void)setProcessState:(NSInteger)state {
     %orig;
-    NSString *bid = nil;
-    if ([self respondsToSelector:@selector(bundleIdentifier)]) {
-        bid = [self performSelector:@selector(bundleIdentifier)];
-    }
+    NSString *bid = [self bundleIdentifier];
     if (state == 0) {
         [[HAAStatusBarIconManager sharedManager] noteAppExited:bid];
     } else if (state >= 1) {
@@ -71,10 +72,7 @@
 - (void)setActive:(BOOL)active {
     %orig;
     if (active) {
-        NSString *bid = nil;
-        if ([self respondsToSelector:@selector(bundleIdentifier)]) {
-            bid = [self performSelector:@selector(bundleIdentifier)];
-        }
+        NSString *bid = [self bundleIdentifier];
         [[HAAStatusBarIconManager sharedManager] noteAppBecameActive:bid];
     }
 }
@@ -97,12 +95,9 @@
 }
 %end
 
-// 关键：插件一加载就立刻初始化状态栏管理器
 %ctor {
-    NSLog(@"[HideAllApps] tweak loaded!");
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-        NSLog(@"[HideAllApps] ctor: initializing managers");
         [[HAAStatusBarIconManager sharedManager] refresh];
         [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
         [[HAAManager sharedManager] refreshAllIconViews];
