@@ -117,18 +117,26 @@
     Class appCtrlClass = NSClassFromString(@"SBApplicationController");
     if (!appCtrlClass) return running;
     id shared = nil;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
     if ([appCtrlClass respondsToSelector:@selector(sharedInstance)]) {
         shared = [appCtrlClass performSelector:@selector(sharedInstance)];
     }
     if (!shared && [appCtrlClass respondsToSelector:@selector(sharedInstanceIfExists)]) {
         shared = [appCtrlClass performSelector:@selector(sharedInstanceIfExists)];
     }
-    if (!shared) return running;
+    if (!shared) {
+#pragma clang diagnostic pop
+        return running;
+    }
     NSArray *apps = nil;
     if ([shared respondsToSelector:@selector(allApplications)]) {
         apps = [shared performSelector:@selector(allApplications)];
     }
-    if (!apps) return running;
+    if (!apps) {
+#pragma clang diagnostic pop
+        return running;
+    }
     for (id app in apps) {
         NSString *bid = nil;
         if ([app respondsToSelector:@selector(bundleIdentifier)]) {
@@ -146,6 +154,7 @@
         if (!isRunning) continue;
         [running addObject:bid];
     }
+#pragma clang diagnostic pop
     return running;
 }
 
