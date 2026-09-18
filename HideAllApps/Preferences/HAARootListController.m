@@ -65,7 +65,6 @@
 
         BOOL activated = [[self defaults] boolForKey:@"activated"];
 
-        // ===== 未激活：只显示激活开关 =====
         if (!activated) {
             PSSpecifier *groupAct = [PSSpecifier groupSpecifierWithName:@"激活插件"];
             [groupAct setProperty:@"打开下方开关，输入密码后激活" forKey:@"footerText"];
@@ -85,7 +84,6 @@
             return _specifiers;
         }
 
-        // ===== 已激活：显示全部 =====
         PSSpecifier *group0 = [PSSpecifier groupSpecifierWithName:@"✅ 已激活"];
         [group0 setProperty:@"插件已激活，可以使用所有功能" forKey:@"footerText"];
         [specs addObject:group0];
@@ -140,10 +138,10 @@
 
         PSSpecifier *rightEnable = [PSSpecifier preferenceSpecifierNamed:@"启用右侧下滑" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
         [rightEnable setProperty:@"rightDownEnabled" forKey:@"key"];
-        [rightEnable setProperty:@NO set forPropertyKey:@"default"];
-        [spec:@s addObject:rightEnable];
+        [rightEnable setProperty:@NO forKey:@"default"];
+        [specs addObject:rightEnable];
 
-       150 PSSpecifier *groupZone = [P forSSpecifier groupSpecifierWithName:@"Key下滑触发区域（拖动调节，左右通用）"];
+        PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"下滑触发区域（拖动调节，左右通用）"];
         [groupZone setProperty:@"调整后打开「显示调试边框」可以看到区域范围（左红右蓝）" forKey:@"footerText"];
         [specs addObject:groupZone];
 
@@ -162,7 +160,7 @@
         PSSpecifier *widthSlider = [PSSpecifier preferenceSpecifierNamed:@"左右边界宽度" target:self set:@selector(setZoneWidth:specifier:) get:@selector(getZoneWidth:) detail:nil cell:PSSliderCell edit:nil];
         [widthSlider setProperty:@50  forKey:@"min"];
         [widthSlider setProperty:@300 forKey:@"max"];
-        [widthSlider:@"default"];
+        [widthSlider setProperty:@150 forKey:@"default"];
         [specs addObject:widthSlider];
 
         PSSpecifier *debugBorder = [PSSpecifier preferenceSpecifierNamed:@"显示调试边框" target:self set:@selector(setDebugBorder:specifier:) get:@selector(getDebugBorder:) detail:nil cell:PSSwitchCell edit:nil];
