@@ -128,7 +128,7 @@
         [widthSlider setProperty:@150 forKey:@"default"];
         [specs addObject:widthSlider];
 
-        PSSpecifier *debugBorder = [PSSpecifier preferenceSpecifierNamed:@"显示调试边框（3 秒）" target:self set:@selector(setDebugBorder:specifier:) get:@selector(getDebugBorder:) detail:nil cell:PSSwitchCell edit:nil];
+        PSSpecifier *debugBorder = [PSSpecifier preferenceSpecifierNamed:@"显示调试边框" target:self set:@selector(setDebugBorder:specifier:) get:@selector(getDebugBorder:) detail:nil cell:PSSwitchCell edit:nil];
         [debugBorder setProperty:@NO forKey:@"default"];
         [specs addObject:debugBorder];
 
@@ -239,12 +239,18 @@
 }
 
 - (id)getDebugBorder:(PSSpecifier *)specifier {
-    return @NO;
+    return @([[self defaults] boolForKey:@"debugBorderEnabled"]);
 }
 - (void)setDebugBorder:(id)value specifier:(PSSpecifier *)specifier {
-    if (![value boolValue]) return;
-    notify_post("com.yourname.hideallapps/showBorder");
-    [self reloadSpecifiers];
+    BOOL on = [value boolValue];
+    NSUserDefaults *d = [self defaults];
+    [d setBool:on forKey:@"debugBorderEnabled"];
+    [d synchronize];
+    if (on) {
+        notify_post("com.yourname.hideallapps/showBorder");
+    } else {
+        notify_post("com.yourname.hideallapps/hideBorder");
+    }
 }
 
 - (id)getSizeSlider:(PSSpecifier *)specifier {
