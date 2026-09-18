@@ -36,23 +36,28 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 }
 
 - (void)installGesturesIntoSpringBoard {
-    // 只给 SBIconController 的 view 加手势，别的 App 不加
+    // 1) 给 SBIconController.view 加
     Class iconCtrlClass = NSClassFromString(@"SBIconController");
-    if (!iconCtrlClass) return;
-
-    id shared = nil;
-    if ([iconCtrlClass respondsToSelector:@selector(sharedInstance)]) {
-        shared = [iconCtrlClass performSelector:@selector(sharedInstance)];
+    if (iconCtrlClass) {
+        id shared = nil;
+        if ([iconCtrlClass respondsToSelector:@selector(sharedInstance)]) {
+            shared = [iconCtrlClass performSelector:@selector(sharedInstance)];
+        }
+        if (shared && [shared respondsToSelector:@selector(view)]) {
+            UIView *v = [shared performSelector:@selector(view)];
+            if (v) [self setupGesturesOnView:v];
+        }
     }
-    if (!shared) return;
 
-    UIView *iconView = nil;
-    if ([shared respondsToSelector:@selector(view)]) {
-        iconView = [shared performSelector:@selector(view)];
+    // 2) 给 SpringBoard 主窗口加（但只给"主屏窗口"，不是别的 App 的窗口）
+    for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        NSString *cls = NSStringFromClass(w.class);
+        if ([cls containsString:@"StatusBar"]) continue;
+        if ([cls containsString:@"Keyboard"]) continue;
+        if (w.bounds.size.width > 300 && w.bounds.size.height > 600) {
+            [self setupGesturesOnView:w];
+        }
     }
-    if (!iconView) return;
-
-    [self setupGesturesOnView:iconView];
 }
 
 - (BOOL)inYZone:(CGFloat)y height:(CGFloat)h {
