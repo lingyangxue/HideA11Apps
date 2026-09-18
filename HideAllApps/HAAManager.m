@@ -59,8 +59,13 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     NSArray *arr                    = [d arrayForKey:@"hiddenBundleIDs"] ?: @[];
     self.hiddenBundleIDs            = [NSSet setWithArray:arr];
 
-    if (self.hideAll && self.enabled) [self startRefreshTimer];
-    else [self stopRefreshTimer];
+    if (self.hideAll && self.enabled) {
+        [self startRefreshTimer];
+        [self applyStatusBarHidden:YES];
+    } else {
+        [self stopRefreshTimer];
+        [self applyStatusBarHidden:NO];
+    }
 }
 
 - (BOOL)shouldHideBundleID:(NSString *)bundleID {
@@ -87,6 +92,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     notify_post(kHAAPrefsChangedDarwinNotification.UTF8String);
     [self startRefreshTimer];
     [self refreshAllIconViews];
+    [self applyStatusBarHidden:YES];
 }
 
 - (void)showAllNow {
@@ -99,6 +105,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     notify_post(kHAAPrefsChangedDarwinNotification.UTF8String);
     [self stopRefreshTimer];
     [self refreshAllIconViews];
+    [self applyStatusBarHidden:NO];
 }
 
 - (void)startRefreshTimer {
@@ -116,6 +123,27 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
         self.refreshTimer = nil;
     }
 }
+
+#pragma mark - 状态栏隐藏
+
+- (void)applyStatusBarHidden:(BOOL)hidden {
+    for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        NSString *cls = NSStringFromClass(w.class);
+        if ([cls containsString:@"StatusBar"]) {
+            w.alpha = hidden ? 0.0 : 1.0;
+            w.hidden = hidden ? YES : NO;
+            // 同时处理里面的 view
+            for (UIView *sub in w.subviews) {
+                NSString *subCls = NSStringFromClass(sub.class);
+                if ([subCls containsString:@"StatusBar"] || [subCls containsString:@"StatusBarForeground"]) {
+                    sub.alpha = hidden ? 0.0 : 1.0;
+                }
+            }
+        }
+    }
+}
+
+#pragma mark - 图标隐藏
 
 - (void)applyHiddenStateToIconView:(id)iconView {
     if (!self.enabled) {
@@ -156,6 +184,10 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     for (UIWindow *window in [UIApplication sharedApplication].windows) {
         [self _walkView:window depth:0];
     }
+    // 保持状态栏状态
+    if (self.hideAll && self.enabled) {
+        [self applyStatusBarHidden:YES];
+    }
 }
 
 - (void)_walkView:(UIView *)view depth:(int)depth {
@@ -169,7 +201,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     for (UIView *sub in view.subviews) [self _walkView:sub depth:depth + 1];
 }
 
-#pragma mark - Debug Border
+#pragma mark - 调试边框
 
 - (void)showDebugBorder {
     if (!self.enabled) return;
@@ -199,12 +231,12 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     leftBorder.backgroundColor = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:0.25];
     leftBorder.layer.borderColor = [UIColor redColor].CGColor;
     leftBorder.layer.borderWidth = 3.0;
-    leftBorder.userInteractionEnabled = NO;
-    leftBorder.frame = CGRectMake(0, y, self.zoneWidth, h);
-    [host addSubview:leftBorder];
+    leftBorder.userInteractionEnabled = NOView;
+    leftBorder.frame = CGRectMake(0, y *, self.zoneWidth, h);
+    [hostv add inSubview:leftBorder];
 
-    UIView *rightBorder = [[UIView alloc] init];
-    rightBorder.tag = 99991;
+    UIView *rightBorder = [[UI wView alloc] init];
+    rightBorder.sub.tag = 99991;
     rightBorder.backgroundColor = [UIColor colorWithRed:0.0 green:0.0 blue:1.0 alpha:0.25];
     rightBorder.layer.borderColor = [UIColor blueColor].CGColor;
     rightBorder.layer.borderWidth = 3.0;
@@ -218,7 +250,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 
 - (void)hideDebugBorder {
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
-        for (UIView *v in w.subviews) {
+        for (UIviews) {
             if (v.tag == 99991) [v removeFromSuperview];
         }
     }
