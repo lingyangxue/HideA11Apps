@@ -27,16 +27,9 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     rightEdge.edges = UIRectEdgeRight;
     rightEdge.cancelsTouchesInView = NO;
     [view addGestureRecognizer:rightEdge];
-
-    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
-    pan.minimumNumberOfTouches = 1;
-    pan.maximumNumberOfTouches = 1;
-    pan.cancelsTouchesInView = NO;
-    [view addGestureRecognizer:pan];
 }
 
 - (void)installGesturesIntoSpringBoard {
-    // 1) 给 SBIconController.view 加
     Class iconCtrlClass = NSClassFromString(@"SBIconController");
     if (iconCtrlClass) {
         id shared = nil;
@@ -48,8 +41,6 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
             if (v) [self setupGesturesOnView:v];
         }
     }
-
-    // 2) 给 SpringBoard 主窗口加（但只给"主屏窗口"，不是别的 App 的窗口）
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         NSString *cls = NSStringFromClass(w.class);
         if ([cls containsString:@"StatusBar"]) continue;
@@ -98,31 +89,6 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     if (![self inYZone:loc.y height:size.height]) return;
 
     [m toggleHidden];
-}
-
-- (void)handlePan:(UIPanGestureRecognizer *)gr {
-    HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled) return;
-    if (gr.state != UIGestureRecognizerStateEnded) return;
-
-    CGPoint startLoc = [gr locationInView:gr.view];
-    CGPoint t = [gr translationInView:gr.view];
-    CGSize size = gr.view.bounds.size;
-
-    if (t.y < 30) return;
-    if (fabs(t.y) < fabs(t.x)) return;
-    if (![self inYZone:startLoc.y height:size.height]) return;
-
-    if (startLoc.x <= m.zoneWidth) {
-        if (!m.leftDownEnabled) return;
-        [m toggleHidden];
-        return;
-    }
-    if (startLoc.x >= size.width - m.zoneWidth) {
-        if (!m.rightDownEnabled) return;
-        [m toggleHidden];
-        return;
-    }
 }
 
 @end
