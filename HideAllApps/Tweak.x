@@ -3,7 +3,6 @@
 #import <notify.h>
 #import "HAAManager.h"
 #import "HAAGestureManager.h"
-#import "HAAStatusBarIconManager.h"
 
 @interface SBIconController : UIViewController
 @end
@@ -25,18 +24,15 @@
 - (void)viewDidLoad {
     %orig;
     [[HAAGestureManager sharedManager] setupGesturesOnView:self.view];
-    [[HAAStatusBarIconManager sharedManager] refresh];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
         [[HAAManager sharedManager] refreshAllIconViews];
-        [[HAAStatusBarIconManager sharedManager] refresh];
     });
 }
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
     [[HAAManager sharedManager] refreshAllIconViews];
-    [[HAAStatusBarIconManager sharedManager] refresh];
 }
 %end
 
@@ -55,25 +51,6 @@
     %orig;
     if (motion == UIEventSubtypeMotionShake) {
         [[HAAGestureManager sharedManager] handleShake];
-    }
-}
-%end
-
-%hook SBApplication
-- (void)setProcessState:(NSInteger)state {
-    %orig;
-    NSString *bid = [self bundleIdentifier];
-    if (state == 0) {
-        [[HAAStatusBarIconManager sharedManager] noteAppExited:bid];
-    } else if (state >= 1) {
-        [[HAAStatusBarIconManager sharedManager] noteAppBecameActive:bid];
-    }
-}
-- (void)setActive:(BOOL)active {
-    %orig;
-    if (active) {
-        NSString *bid = [self bundleIdentifier];
-        [[HAAStatusBarIconManager sharedManager] noteAppBecameActive:bid];
     }
 }
 %end
@@ -122,7 +99,6 @@
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-        [[HAAStatusBarIconManager sharedManager] refresh];
         [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
         [[HAAManager sharedManager] refreshAllIconViews];
     });
