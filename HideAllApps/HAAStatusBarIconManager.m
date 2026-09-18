@@ -20,13 +20,11 @@
         _visibleBundleIDs = [NSMutableArray array];
 
         __weak typeof(self) weakSelf = self;
-        // 监听设置变化
         static int token = 0;
         notify_register_dispatch(kDarwinNotification, &token, dispatch_get_main_queue(), ^(int t) {
             [weakSelf refresh];
         });
 
-        // 监听 App 激活 / 退出
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(appBecameActive:)
                                                      name:@"SBApplicationDidBecomeActiveNotification"
@@ -36,7 +34,6 @@
                                                      name:@"SBApplicationDidExitNotification"
                                                    object:nil];
 
-        // 延迟初始化状态栏视图
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
             [weakSelf setupIfNeeded];
@@ -61,6 +58,13 @@
     return (CGFloat)s;
 }
 
+// 位置比例 0.0 = 最左，1.0 = 最右，默认 0.9
+- (CGFloat)positionRatio {
+    id v = [[self defaults] objectForKey:@"statusBarIconPos"];
+    if (!v) return 0.9;
+    return [v doubleValue];
+}
+
 - (UIWindow *)statusBarWindow {
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         NSString *cls = NSStringFromClass(w.class);
@@ -77,17 +81,9 @@
     if (!sbw) return;
 
     self.container = [[UIView alloc] init];
-    self.container.translatesAutoresizingMaskIntoConstraints = NO;
     self.container.backgroundColor = [UIColor clearColor];
+    self.container.userInteractionEnabled = NO;
     [sbw addSubview:self.container];
-
-    // 位置：状态栏右侧，紧挨着信号 / wifi / 电池左侧
-    [NSLayoutConstraint activateConstraints:@[
-        [self.container.trailingAnchor constraintEqualToAnchor:sbw.trailingAnchor constant:-85],
-        [self.container.centerYAnchor constraintEqualToAnchor:sbw.centerYAnchor],
-        [self.container.heightAnchor constraintEqualToConstant:20],
-        [self.container.widthAnchor constraintEqualToConstant:1]  // 会根据内容动态调整 frame
-    ]];
 }
 
 - (UIImage *)iconForBundleID:(NSString *)bundleID {
@@ -129,7 +125,7 @@
     CGFloat x = 0;
 
     for (NSString *bid in self.visibleBundleIDs) {
-        UIImage *icon = [self iconForBundleID:bid];
+        UIImage *icon = [iconForBundleID:bid] ?: [self iconForBundleID:bid];
         if (!icon) continue;
         UIImageView *iv = [[UIImageView alloc] initWithImage:icon];
         iv.frame = CGRectMake(x, 0, size, size);
@@ -141,17 +137,27 @@
         x += size + spacing;
     }
 
-    // 更新 container 宽度
-    CGRect f = self.container.frame;
-    f.size.width = MAX(x, 1);
-    f.size.height = size;
-    self.container.frame = f;
+    // ===== 位置计算 =====
+    UIWindow *sbw = [self statusBarWindow];
+    if (!sbw) return;
+    CGFloat winW = sbw.bounds.size.width;
+    CGFloat winH = sbw.bounds.size.height;
+
+    CGFloat totalW = MAX(x - spacing, 1);
+    CGFloat ratio = [self positionRatio];
+    CGFloat startX = (winW - totalW) * ratio;
+
+    // 限制不要超出屏幕
+    if (startX < 4) startX = 4;
+    if (startX + totalW > winW - 4) startX = winW - totalW - 4;
+
+    self.container.frame = CGRectMake(startX, (winH - size) / 2.0, totalW, size);
 }
 
 - (void)appDidLaunch:(NSString *)bundleID {
     if (!bundleID) return;
     if (![self isEnabled]) return;
-    if ([bundleID hasPrefix:@"com.apple."]) return;  // 忽略系统 App
+    if ([bundleID hasPrefix:@"com.apple."]) return;
 
     if (![self.visibleBundleIDs containsObject:bundleID]) {
         [self.visibleBundleIDs addObject:bundleID];
