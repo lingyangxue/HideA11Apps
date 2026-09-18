@@ -19,7 +19,13 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
-    // 左侧向下滑 → 恢复（独立开关控制，见 handleLeftDown）
+    // 用 UIScreenEdgePanGestureRecognizer 从左侧边缘识别
+    UIScreenEdgePanGestureRecognizer *edge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleEdgePan:)];
+    edge.edges = UIRectEdgeLeft;
+    edge.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:edge];
+
+    // 保险：再加上普通的向下滑手势（左侧区域）
     UISwipeGestureRecognizer *leftDown = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftDown:)];
     leftDown.direction = UISwipeGestureRecognizerDirectionDown;
     leftDown.numberOfTouchesRequired = 1;
@@ -61,11 +67,28 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     return m.enabled && m.gestureType == type;
 }
 
-// 左侧向下滑 → 只恢复（受独立开关控制）
+// 屏幕边缘左滑手势
+- (void)handleEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
+    if (gr.state != UIGestureRecognizerStateEnded &&
+        gr.state != UIGestureRecognizerStateChanged) return;
+
+    HAAManager *m = [HAAManager sharedManager];
+    if (!m.enabled) return;
+    if (!m.leftDownEnabled) return;
+
+    CGPoint translation = [gr translationInView:gr.view];
+    // 向下滑（y 正向增大）
+    if (translation.y < 40) return;
+    if (translation.y < fabs(translation.x)) return;  // 垂直分量要大于水平
+
+    [m showAllNow];
+}
+
+// 左侧区域向下滑
 - (void)handleLeftDown:(UISwipeGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled) return;
-    if (!m.leftDownEnabled) return;  // 开关关闭就不响应
+    if (!m.leftDownEnabled) return;
 
     CGPoint loc = [gr locationInView:gr.view];
     CGSize size = gr.view.bounds.size;
