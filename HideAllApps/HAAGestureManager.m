@@ -19,15 +19,24 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
+    // 左侧边缘
     UIScreenEdgePanGestureRecognizer *leftEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftEdgePan:)];
     leftEdge.edges = UIRectEdgeLeft;
     leftEdge.cancelsTouchesInView = NO;
     [view addGestureRecognizer:leftEdge];
 
+    // 右侧边缘
     UIScreenEdgePanGestureRecognizer *rightEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRightEdgePan:)];
     rightEdge.edges = UIRectEdgeRight;
     rightEdge.cancelsTouchesInView = NO;
     [view addGestureRecognizer:rightEdge];
+
+    // Pan 兜底（要求起点在左右边缘）
+    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
+    pan.minimumNumberOfTouches = 1;
+    pan.maximumNumberOfTouches = 1;
+    pan.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:pan];
 }
 
 - (void)setupStatusBarGestures:(UIView *)view {
@@ -62,6 +71,15 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     }
 }
 
+- (BOOL)inYZone:(CGFloat)y height:(CGFloat)h {
+    HAAManager *m = [HAAManager sharedManager];
+    CGFloat ratio = y / h;
+    if (ratio < m.zoneTopRatio) return NO;
+    if (ratio > m.zoneBottomRatio) return NO;
+    return YES;
+}
+
+// 左侧边缘手势
 - (void)handleLeftEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled || !m.leftDownEnabled) return;
@@ -73,14 +91,12 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
 
     if (t.y < 30) return;
     if (fabs(t.y) < fabs(t.x)) return;
-
-    CGFloat yRatio = loc.y / size.height;
-    if (yRatio < m.zoneTopRatio) return;
-    if (yRatio > m.zoneBottomRatio) return;
+    if (![self inYZone:loc.y height:size.height]) return;
 
     [m toggleHidden];
 }
 
+// 右侧边缘手势
 - (void)handleRightEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled || !m.rightDownEnabled) return;
@@ -92,12 +108,37 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
 
     if (t.y < 30) return;
     if (fabs(t.y) < fabs(t.x)) return;
-
-    CGFloat yRatio = loc.y / size.height;
-    if (yRatio < m.zoneTopRatio) return;
-    if (yRatio > m.zoneBottomRatio) return;
+    if (![self inYZone:loc.y height:size.height]) return;
 
     [m toggleHidden];
+}
+
+// Pan 兜底：起点必须在屏幕左右边缘
+- (void)handlePan:(UIPanGestureRecognizer *)gr {
+    HAAManager *m = [HAAManager sharedManager];
+    if (!m.enabled) return;
+    if (gr.state != UIGestureRecognizerStateEnded) return;
+
+    CGPoint startLoc = [gr locationInView:gr.view];
+    CGPoint t = [gr translationInView:gr.view];
+    CGSize size = gr.view.bounds.size;
+
+    if (t.y < 30) return;
+    if (fabs(t.y) < fabs(t.x)) return;
+    if (![self inYZone:startLoc.y height:size.height]) return;
+
+    // 起点在左侧
+    if (startLoc.x <= m.zoneWidth) {
+        if (!m.leftDownEnabled) return;
+        [m toggleHidden];
+        return;
+    }
+    // 起点在右侧
+    if (startLoc.x >= size.width - m.zoneWidth) {
+        if (!m.rightDownEnabled) return;
+        [m toggleHidden];
+        return;
+    }
 }
 
 - (void)handleStatusBarSingleTap:(UITapGestureRecognizer *)gr {
