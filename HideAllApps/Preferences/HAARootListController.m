@@ -88,11 +88,12 @@
         [specs addObject:pick];
 
         PSSpecifier *groupR = [PSSpecifier groupSpecifierWithName:@"重启桌面"];
-        [groupR setProperty:@"点击下方按钮重启 SpringBoard，让插件完全生效" forKey:@"footerText"];
+        [groupR setProperty:@"打开开关 → 立即重启 SpringBoard（开关会自动关闭）" forKey:@"footerText"];
         [specs addObject:groupR];
 
-        PSSpecifier *respring = [PSSpecifier preferenceSpecifierNamed:@"注销（重启 SpringBoard）" target:self set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
-        [respring setProperty:NSStringFromSelector(@selector(respringTapped)) forKey:@"action"];
+        PSSpecifier *respring = [PSSpecifier preferenceSpecifierNamed:@"注销（重启 SpringBoard）" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [respring setProperty:@"respringTrigger" forKey:@"key"];
+        [respring setProperty:@NO forKey:@"default"];
         [specs addObject:respring];
 
         _specifiers = specs;
@@ -110,6 +111,22 @@
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
     NSString *key = [specifier propertyForKey:@"key"];
     NSUserDefaults *d = [self defaults];
+
+    // 注销开关特殊处理
+    if ([key isEqualToString:@"respringTrigger"]) {
+        if (![value boolValue]) return;
+        [d setBool:NO forKey:@"respringTrigger"];
+        [d synchronize];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            pid_t pid;
+            const char *args[] = {"killall", "-9", "SpringBoard", NULL};
+            posix_spawn(&pid, "/var/jb/usr/bin/killall", NULL, NULL, (char * const *)args, NULL);
+        });
+        [self reloadSpecifiers];
+        return;
+    }
+
     [d setObject:value forKey:key];
     [d synchronize];
     notify_post(kDarwinNotification);
@@ -186,12 +203,6 @@
         }
     }
     [self reloadSpecifiers];
-}
-
-- (void)respringTapped {
-    pid_t pid;
-    const char *args[] = {"killall", "-9", "SpringBoard", NULL};
-    posix_spawn(&pid, "/var/jb/usr/bin/killall", NULL, NULL, (char * const *)args, NULL);
 }
 
 @end
