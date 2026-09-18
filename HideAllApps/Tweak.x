@@ -2,16 +2,11 @@
 #import <objc/runtime.h>
 #import <notify.h>
 #import "HAAManager.h"
-#import "HAAGestureManager.h"
 
 @interface SBIconController : UIViewController
 @end
 
 @interface SPUIAppResultsViewController : UIViewController
-@end
-
-@interface SBApplication : NSObject
-- (NSString *)bundleIdentifier;
 @end
 
 %hook SBIconView
@@ -23,35 +18,14 @@
 %hook SBIconController
 - (void)viewDidLoad {
     %orig;
-    [[HAAGestureManager sharedManager] setupGesturesOnView:self.view];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-        [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
         [[HAAManager sharedManager] refreshAllIconViews];
     });
 }
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
     [[HAAManager sharedManager] refreshAllIconViews];
-}
-%end
-
-%hook UIWindow
-- (void)didMoveToWindow {
-    %orig;
-    NSString *cls = NSStringFromClass(self.class);
-    if ([cls containsString:@"StatusBar"]) {
-        [[HAAGestureManager sharedManager] setupStatusBarGestures:self];
-    }
-}
-%end
-
-%hook UIApplication
-- (void)motionEnded:(UIEventSubtype)motion withEvent:(UIEvent *)event {
-    %orig;
-    if (motion == UIEventSubtypeMotionShake) {
-        [[HAAGestureManager sharedManager] handleShake];
-    }
 }
 %end
 
@@ -73,33 +47,8 @@
 %end
 
 %ctor {
-    // 注销通知
-    static int respringToken = 0;
-    notify_register_dispatch("com.yourname.hideallapps/respring",
-                             &respringToken,
-                             dispatch_get_main_queue(), ^(int t) {
-        exit(0);
-    });
-
-    // 显示调试边框
-    static int showBorderToken = 0;
-    notify_register_dispatch("com.yourname.hideallapps/showBorder",
-                             &showBorderToken,
-                             dispatch_get_main_queue(), ^(int t) {
-        [[HAAManager sharedManager] showDebugBorder];
-    });
-
-    // 隐藏调试边框
-    static int hideBorderToken = 0;
-    notify_register_dispatch("com.yourname.hideallapps/hideBorder",
-                             &hideBorderToken,
-                             dispatch_get_main_queue(), ^(int t) {
-        [[HAAManager sharedManager] hideDebugBorder];
-    });
-
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-        [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
         [[HAAManager sharedManager] refreshAllIconViews];
     });
 }
