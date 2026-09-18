@@ -36,48 +36,43 @@
 }
 
 - (void)doRespring {
-    // 方式 1：respring 命令（rootHide 最常用）
-    pid_t pid;
-    const char *paths[] = {
-        "/var/jb/usr/bin/sbreload",
-        "/usr/bin/sbreload",
-        "/var/jb/usr/bin/respring",
-        "/usr/bin/respring",
-        NULL
-    };
-    for (int i = 0; paths[i] != NULL; i++) {
-        const char *args[] = { paths[i], NULL };
-        posix_spawn(&pid, paths[i], NULL, NULL, (char * const *)args, NULL);
+    NSLog(@"[HideAllApps] doRespring called");
+
+    Class sbcClass = NSClassFromString(@"FBSystemService");
+    if (sbcClass) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        id shared = nil;
+        if ([sbcClass respondsToSelector:@selector(sharedInstance)]) {
+            shared = [sbcClass performSelector:@selector(sharedInstance)];
+        }
+        if (shared && [shared respondsToSelector:@selector(exitImmediately)]) {
+            [shared performSelector:@selector(exitImmediately)];
+#pragma clang diagnostic pop
+            return;
+        }
+#pragma clang diagnostic pop
     }
 
-    // 方式 2：killall SpringBoard（多路径）
+    pid_t pid;
     const char *killPaths[] = {
+        "/var/jb/usr/bin/sbreload",
+        "/var/jb/usr/bin/respring",
         "/var/jb/usr/bin/killall",
+        "/usr/bin/sbreload",
+        "/usr/bin/respring",
         "/usr/bin/killall",
         NULL
     };
     for (int i = 0; killPaths[i] != NULL; i++) {
-        const char *args[] = { killPaths[i], "-9", "SpringBoard", NULL };
-        posix_spawn(&pid, killPaths[i], NULL, NULL, (char * const *)args, NULL);
+        const char *argsA[] = { killPaths[i], NULL };
+        posix_spawn(&pid, killPaths[i], NULL, NULL, (char * const *)argsA, NULL);
+        const char *argsB[] = { killPaths[i], "-9", "SpringBoard", NULL };
+        posix_spawn(&pid, killPaths[i], NULL, NULL, (char * const *)argsB, NULL);
     }
 
-    // 方式 3：直接 kill 进程 1
     kill(1, SIGKILL);
-
-    // 方式 4：BackBoardServices 退出 API
-    Class bbsClass = NSClassFromString(@"FBSystemService");
-    if (bbsClass) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-        id shared = nil;
-        if ([bbsClass respondsToSelector:@selector(sharedInstance)]) {
-            shared = [bbsClass performSelector:@selector(sharedInstance)];
-        }
-        if (shared && [shared respondsToSelector:@selector(exitImmediately)]) {
-            [shared performSelector:@selector(exitImmediately)];
-        }
-#pragma clang diagnostic pop
-    }
+    NSLog(@"[HideAllApps] kill(1) called");
 }
 
 @end
@@ -108,10 +103,12 @@
         [group2 setProperty:@"打开其中一个开关后，另一个会自动关闭" forKey:@"footerText"];
         [specs addObject:group2];
 
-        NSArray *names = @[@"关闭", @"上滑", @"左滑", @"右滑", @"状态栏单击", @"状态栏双击"];
+        // 只保留状态栏单击 / 双击
+        NSArray *names = @[@"状态栏单击", @"状态栏双击"];
+        NSArray *idxes = @[@4, @5];
         for (NSInteger i = 0; i < names.count; i++) {
             PSSpecifier *sp = [PSSpecifier preferenceSpecifierNamed:names[i] target:self set:@selector(setGestureValue:specifier:) get:@selector(gestureValue:) detail:nil cell:PSSwitchCell edit:nil];
-            [sp setProperty:@(i) forKey:@"gestureIndex"];
+            [sp setProperty:idxes[i] forKey:@"gestureIndex"];
             [specs addObject:sp];
         }
 
@@ -189,8 +186,8 @@
     return value ?: @0;
 }
 
-- (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
-    NSString *key = [specifier propertyForKey:@"key"];
+- (void)setPreferenceValue:(id)value specifier:(PSS   pecifier *)spec ififier {
+    NSString *key = [specifier property (ForKey:@"key"];
     NSUserDefaults *d = [self defaults];
     [d setObject:value forKey:key];
     [d synchronize];
@@ -222,7 +219,7 @@
 
 - (id)getSizeSlider:(PSSpecifier *)specifier {
     double v = [[self defaults] doubleForKey:@"statusBarIconSize"];
-    if (v < 6) v = 14;
+v < 6) v = 14;
     return @(v);
 }
 - (void)setSizeSlider:(id)value specifier:(PSSpecifier *)specifier {
