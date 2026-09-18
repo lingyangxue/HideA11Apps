@@ -2,11 +2,9 @@
 
 extern NSString * const kHAASuiteName;
 extern NSString * const kHAAPrefsChangedDarwinNotification;
-extern NSString * const kHAActivationPassword;
 
 @interface HAAManager : NSObject
 @property (nonatomic, assign) BOOL enabled;
-@property (nonatomic, assign) BOOL activated;   // ← 新增
 @property (nonatomic, assign) BOOL statusBarSingleTapEnabled;
 @property (nonatomic, assign) BOOL statusBarDoubleTapEnabled;
 @property (nonatomic, assign) BOOL shakeEnabled;
