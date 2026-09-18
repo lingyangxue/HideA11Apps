@@ -58,7 +58,6 @@
     return (CGFloat)s;
 }
 
-// 位置比例 0.0 = 最左，1.0 = 最右，默认 0.9
 - (CGFloat)positionRatio {
     id v = [[self defaults] objectForKey:@"statusBarIconPos"];
     if (!v) return 0.9;
@@ -125,7 +124,7 @@
     CGFloat x = 0;
 
     for (NSString *bid in self.visibleBundleIDs) {
-        UIImage *icon = [iconForBundleID:bid] ?: [self iconForBundleID:bid];
+        UIImage *icon = [self iconForBundleID:bid];
         if (!icon) continue;
         UIImageView *iv = [[UIImageView alloc] initWithImage:icon];
         iv.frame = CGRectMake(x, 0, size, size);
@@ -137,7 +136,6 @@
         x += size + spacing;
     }
 
-    // ===== 位置计算 =====
     UIWindow *sbw = [self statusBarWindow];
     if (!sbw) return;
     CGFloat winW = sbw.bounds.size.width;
@@ -147,7 +145,6 @@
     CGFloat ratio = [self positionRatio];
     CGFloat startX = (winW - totalW) * ratio;
 
-    // 限制不要超出屏幕
     if (startX < 4) startX = 4;
     if (startX + totalW > winW - 4) startX = winW - totalW - 4;
 
