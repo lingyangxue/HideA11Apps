@@ -140,10 +140,10 @@
 
         PSSpecifier *rightEnable = [PSSpecifier preferenceSpecifierNamed:@"启用右侧下滑" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
         [rightEnable setProperty:@"rightDownEnabled" forKey:@"key"];
-        [rightEnable setProperty:@NO forKey:@"default"];
-        [specs addObject:rightEnable];
+        [rightEnable setProperty:@NO set forPropertyKey:@"default"];
+        [spec:@s addObject:rightEnable];
 
-        PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"下滑触发区域（拖动调节，左右通用）"];
+       150 PSSpecifier *groupZone = [P forSSpecifier groupSpecifierWithName:@"Key下滑触发区域（拖动调节，左右通用）"];
         [groupZone setProperty:@"调整后打开「显示调试边框」可以看到区域范围（左红右蓝）" forKey:@"footerText"];
         [specs addObject:groupZone];
 
@@ -162,7 +162,7 @@
         PSSpecifier *widthSlider = [PSSpecifier preferenceSpecifierNamed:@"左右边界宽度" target:self set:@selector(setZoneWidth:specifier:) get:@selector(getZoneWidth:) detail:nil cell:PSSliderCell edit:nil];
         [widthSlider setProperty:@50  forKey:@"min"];
         [widthSlider setProperty:@300 forKey:@"max"];
-        [widthSlider setProperty:@150 forKey:@"default"];
+        [widthSlider:@"default"];
         [specs addObject:widthSlider];
 
         PSSpecifier *debugBorder = [PSSpecifier preferenceSpecifierNamed:@"显示调试边框" target:self set:@selector(setDebugBorder:specifier:) get:@selector(getDebugBorder:) detail:nil cell:PSSwitchCell edit:nil];
@@ -209,11 +209,17 @@
                                                             preferredStyle:UIAlertControllerStyleAlert];
     [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
         tf.placeholder = @"激活密码";
-        tf.secureTextEntry = YES;
+        tf.text = @"";
     }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(UIAlertAction *a) {
+        [self reloadSpecifiers];
+    }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         NSString *input = alert.textFields.firstObject.text ?: @"";
+        input = [input stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+
+        NSString *debugInfo = [NSString stringWithFormat:@"输入: [%@]\n预设: [%@]", input, kActivationPassword];
+
         if ([input isEqualToString:kActivationPassword]) {
             NSUserDefaults *d = [self defaults];
             [d setBool:YES forKey:@"activated"];
@@ -228,7 +234,7 @@
             [self presentViewController:ok animated:YES completion:nil];
         } else {
             UIAlertController *fail = [UIAlertController alertControllerWithTitle:@"激活失败"
-                                                                          message:@"密码错误"
+                                                                          message:debugInfo
                                                                    preferredStyle:UIAlertControllerStyleAlert];
             [fail addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
                 [self reloadSpecifiers];
