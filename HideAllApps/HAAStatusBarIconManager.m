@@ -5,10 +5,10 @@
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
 
 @interface HAAStatusBarIconManager ()
-@property (nonatomic, strong) UIWindow *overlayWindow;
 @property (nonatomic, strong) UIView *container;
 @property (nonatomic, strong) NSMutableArray *iconViews;
 @property (nonatomic, strong) NSMutableArray *visibleBundleIDs;
+@property (nonatomic, strong) NSTimer *pollTimer;
 @end
 
 @implementation HAAStatusBarIconManager
@@ -34,11 +34,12 @@
                        dispatch_get_main_queue(), ^{
             [weakSelf refresh];
         });
-        // 启动就创建一个明显的测试红方块，验证代码是否跑起来
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-            [weakSelf debugShowRedBlock];
-        });
+        // 每 1 秒重试一次，保证容器一直存在
+        self.pollTimer = [NSTimer scheduledTimerWithTimeInterval:1.0
+                                                          target:self
+                                                        selector:@selector(refresh)
+                                                        userInfo:nil
+                                                         repeats:YES];
     }
     return self;
 }
@@ -70,45 +71,26 @@
     return [v doubleValue];
 }
 
-- (void)debugShowRedBlock {
-    NSLog(@"[HideAllApps] debugShowRedBlock called");
-    CGRect screen = [UIScreen mainScreen].bounds;
-    UIWindow *w = [[UIWindow alloc] initWithFrame:screen];
-    w.windowLevel = UIWindowLevelStatusBar + 2000;
-    w.backgroundColor = [UIColor clearColor];
-    w.userInteractionEnabled = NO;
-    w.hidden = NO;
-    UIViewController *vc = [[UIViewController alloc] init];
-    vc.view.backgroundColor = [UIColor clearColor];
-    w.rootViewController = vc;
-    UIView *red = [[UIView alloc] initWithFrame:CGRectMake(20, 0, 60, 40)];
-    red.backgroundColor = [UIColor redColor];
-    [vc.view addSubview:red];
-    // 3秒后自动消失，避免长期干扰
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
-        [w setHidden:YES];
-    });
-}
-
-- (void)ensureOverlayWindow {
-    if (self.overlayWindow) return;
-    NSLog(@"[HideAllApps] ensureOverlayWindow creating...");
-    CGRect screen = [UIScreen mainScreen].bounds;
-    self.overlayWindow = [[UIWindow alloc] initWithFrame:screen];
-    self.overlayWindow.windowLevel = UIWindowLevelStatusBar + 1000;
-    self.overlayWindow.backgroundColor = [UIColor clearColor];
-    self.overlayWindow.userInteractionEnabled = NO;
-    self.overlayWindow.hidden = NO;
-    UIViewController *vc = [[UIViewController alloc] init];
-    vc.view.backgroundColor = [UIColor clearColor];
-    vc.view.frame = screen;
-    self.overlayWindow.rootViewController = vc;
-    self.container = [[UIView alloc] init];
-    self.container.backgroundColor = [UIColor clearColor];
-    self.container.userInteractionEnabled = NO;
-    [vc.view addSubview:self.container];
-    NSLog(@"[HideAllApps] ensureOverlayWindow done");
+// 找宿主 view：优先 SpringBoard 主窗口，其次 keyWindow
+- (UIView *)hostView {
+    // 方式 1：找 SpringBoard 的主窗口
+    for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        NSString *cls = NSStringFromClass(w.class);
+        if ([cls containsString:@"StatusBar"]) continue;  // 状态栏窗口不加
+        if ([cls containsString:@"Keyboard"]) continue;
+        if ([cls containsString:@"Alert"]) continue;
+        if (w.bounds.size.width > 300 && w.bounds.size.height > 600) {
+            return w;
+        }
+    }
+    // 方式 2：keyWindow
+    UIWindow *kw = [UIApplication sharedApplication].keyWindow;
+    if (kw) return kw;
+    // 方式 3：第一个 window
+    if ([UIApplication sharedApplication].windows.count > 0) {
+        return [UIApplication sharedApplication].windows.firstObject;
+    }
+    return nil;
 }
 
 - (void)noteAppBecameActive:(NSString *)bundleID {
@@ -150,30 +132,39 @@
 }
 
 - (void)refresh {
-    NSLog(@"[HideAllApps] refresh called, enabled=%d", [self isEnabled]);
     if (![self isEnabled]) {
         [self teardown];
         return;
     }
-    [self ensureOverlayWindow];
-    if (!self.container || !self.overlayWindow) return;
-    [self.overlayWindow setHidden:NO];
+
+    UIView *host = [self hostView];
+    if (!host) return;
+
+    // 容器不在 host 上就重建
+    if (!self.container || self.container.superview != host) {
+        [self.container removeFromSuperview];
+        self.container = [[UIView alloc] init];
+        self.container.backgroundColor = [UIColor clearColor];
+        self.container.userInteractionEnabled = NO;
+        [host addSubview:self.container];
+    }
+    [host bringSubviewToFront:self.container];
+
     for (UIView *v in self.iconViews) [v removeFromSuperview];
     [self.iconViews removeAllObjects];
+
     CGFloat size = [self iconSize];
     CGFloat spacing = 4;
     CGFloat x = 0;
+
     NSArray *bidsToShow = self.visibleBundleIDs;
     if (bidsToShow.count == 0) {
         bidsToShow = @[@"com.apple.Preferences"];
     }
-    NSLog(@"[HideAllApps] drawing %lu icons, size=%f", (unsigned long)bidsToShow.count, size);
+
     for (NSString *bid in bidsToShow) {
         UIImage *icon = [self iconForBundleID:bid];
-        if (!icon) {
-            NSLog(@"[HideAllApps] icon nil for %@", bid);
-            continue;
-        }
+        if (!icon) continue;
         UIImageView *iv = [[UIImageView alloc] initWithImage:icon];
         iv.frame = CGRectMake(x, 0, size, size);
         iv.layer.cornerRadius = size * 0.22;
@@ -183,15 +174,16 @@
         [self.iconViews addObject:iv];
         x += size + spacing;
     }
-    CGFloat winW = self.overlayWindow.bounds.size.width;
+
+    CGFloat hostW = host.bounds.size.width;
     CGFloat totalW = MAX(x - spacing, 1);
     CGFloat ratio = [self positionRatio];
-    CGFloat startX = (winW - totalW) * ratio;
+    CGFloat startX = (hostW - totalW) * ratio;
     if (startX < 4) startX = 4;
-    if (startX + totalW > winW - 4) startX = winW - totalW - 4;
+    if (startX + totalW > hostW - 4) startX = hostW - totalW - 4;
+
     CGFloat y = [self verticalOffset];
     self.container.frame = CGRectMake(startX, y, totalW, size);
-    NSLog(@"[HideAllApps] container frame = %@", NSStringFromCGRect(self.container.frame));
 }
 
 - (void)teardown {
@@ -199,8 +191,6 @@
     [self.iconViews removeAllObjects];
     [self.container removeFromSuperview];
     self.container = nil;
-    [self.overlayWindow setHidden:YES];
-    self.overlayWindow = nil;
     [self.visibleBundleIDs removeAllObjects];
 }
 
