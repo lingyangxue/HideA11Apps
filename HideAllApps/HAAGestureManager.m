@@ -5,6 +5,7 @@
 static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 
 @interface HAAGestureManager () <UIGestureRecognizerDelegate>
+@property (nonatomic, assign) BOOL homeScreenActive;
 @end
 
 @implementation HAAGestureManager
@@ -16,36 +17,16 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     return shared;
 }
 
-// 判断主屏是否可见
-- (BOOL)isHomeScreenVisible {
-    Class iconCtrlClass = NSClassFromString(@"SBIconController");
-    if (!iconCtrlClass) return NO;
-    id shared = nil;
-    if ([iconCtrlClass respondsToSelector:@selector(sharedInstance)]) {
-        shared = [iconCtrlClass performSelector:@selector(sharedInstance)];
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _homeScreenActive = YES;  // 默认在桌面
     }
-    if (!shared) return NO;
+    return self;
+}
 
-    UIView *iconView = nil;
-    if ([shared respondsToSelector:@selector(view)]) {
-        iconView = [shared performSelector:@selector(view)];
-    }
-    if (!iconView) return NO;
-
-    // 关键判断：iconView 是否在窗口最前
-    UIWindow *win = iconView.window;
-    if (!win) return NO;
-
-    // 检查是不是被别的 App 覆盖了
-    // 如果 iconView 的 superview 层级还在，就认为可见
-    if (iconView.alpha < 0.01) return NO;
-    if (iconView.hidden) return NO;
-
-    // 检查窗口是不是被移动到了后台
-    if (win.hidden) return NO;
-
-    // 更宽松的检查：iconView 存在就认为可见
-    return YES;
+- (void)setHomeScreenActive:(BOOL)active {
+    _homeScreenActive = active;
 }
 
 - (void)setupGesturesOnView:(UIView *)view {
@@ -64,20 +45,8 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 #pragma mark - UIGestureRecognizerDelegate
 
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
-    // 关键：如果当前有 App 在前台显示，就不识别
-    Class sbAppClass = NSClassFromString(@"SBApplicationController");
-    if (sbAppClass) {
-        id sharedCtrl = nil;
-        if ([sbAppClass respondsToSelector:@selector(sharedInstance)]) {
-            sharedCtrl = [sbAppClass performSelector:@selector(sharedInstance)];
-        }
-        if (sharedCtrl && [sharedCtrl respondsToSelector:@selector(applicationWithDisplayIdentifier:)]) {
-            // 有些系统版本上这个接口名字不同，忽略
-        }
-    }
-
-    // 更简单的判断：调用 isHomeScreenVisible
-    return [self isHomeScreenVisible];
+    // 只有在桌面才识别手势
+    return self.homeScreenActive;
 }
 
 - (void)installGesturesIntoSpringBoard {
