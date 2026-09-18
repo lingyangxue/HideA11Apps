@@ -9,17 +9,9 @@ extern NSString * const kHAAPrefsChangedDarwinNotification;
 @property (nonatomic, assign) BOOL statusBarDoubleTapEnabled;
 @property (nonatomic, assign) BOOL shakeEnabled;
 
-// 左侧下滑
 @property (nonatomic, assign) BOOL leftDownEnabled;
-@property (nonatomic, assign) BOOL leftDownRecoverEnabled;
-@property (nonatomic, assign) BOOL leftDownHideEnabled;
-
-// 右侧下滑
 @property (nonatomic, assign) BOOL rightDownEnabled;
-@property (nonatomic, assign) BOOL rightDownRecoverEnabled;
-@property (nonatomic, assign) BOOL rightDownHideEnabled;
 
-// 触发区域
 @property (nonatomic, assign) CGFloat zoneTopRatio;
 @property (nonatomic, assign) CGFloat zoneBottomRatio;
 @property (nonatomic, assign) CGFloat zoneWidth;
