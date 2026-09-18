@@ -10,6 +10,10 @@
 @interface SPUIAppResultsViewController : UIViewController
 @end
 
+@interface SBApplication : NSObject
+- (NSString *)bundleIdentifier;
+@end
+
 %hook SBIconView
 - (void)setIcon:(id)icon { %orig; [[HAAManager sharedManager] applyHiddenStateToIconView:self]; }
 - (void)didMoveToWindow { %orig; [[HAAManager sharedManager] applyHiddenStateToIconView:self]; }
@@ -27,8 +31,25 @@
 }
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
+    [[HAAGestureManager sharedManager] setHomeScreenActive:YES];
     [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
     [[HAAManager sharedManager] refreshAllIconViews];
+}
+- (void)viewDidDisappear:(BOOL)animated {
+    %orig;
+    [[HAAGestureManager sharedManager] setHomeScreenActive:NO];
+}
+%end
+
+// 关键：hook SBApplication 记录当前前台 App
+%hook SBApplication
+- (void)setActive:(BOOL)active {
+    %orig;
+    if (active) {
+        NSString *bid = [self bundleIdentifier];
+        BOOL isSB = [bid isEqualToString:@"com.apple.springboard"];
+        [[HAAGestureManager sharedManager] setHomeScreenActive:isSB];
+    }
 }
 %end
 
