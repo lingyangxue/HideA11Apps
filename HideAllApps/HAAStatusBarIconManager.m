@@ -141,7 +141,11 @@
             isRunning = [app performSelector:@selector(isRunning)];
         }
         if (!isRunning && [app respondsToSelector:NSSelectorFromString(@"isRunningOrSuspended")]) {
-            isRunning = [app performSelector:NSSelectorFromString(@"isRunningOrSuspended")];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+    isRunning = [app performSelector:NSSelectorFromString(@"isRunningOrSuspended")];
+#pragma clang diagnostic pop
+}
         }
         if (!isRunning) continue;
         [running addObject:bid];
