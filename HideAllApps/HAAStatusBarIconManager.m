@@ -34,6 +34,11 @@
                        dispatch_get_main_queue(), ^{
             [weakSelf refresh];
         });
+        // 启动就创建一个明显的测试红方块，验证代码是否跑起来
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            [weakSelf debugShowRedBlock];
+        });
     }
     return self;
 }
@@ -65,8 +70,30 @@
     return [v doubleValue];
 }
 
+- (void)debugShowRedBlock {
+    NSLog(@"[HideAllApps] debugShowRedBlock called");
+    CGRect screen = [UIScreen mainScreen].bounds;
+    UIWindow *w = [[UIWindow alloc] initWithFrame:screen];
+    w.windowLevel = UIWindowLevelStatusBar + 2000;
+    w.backgroundColor = [UIColor clearColor];
+    w.userInteractionEnabled = NO;
+    w.hidden = NO;
+    UIViewController *vc = [[UIViewController alloc] init];
+    vc.view.backgroundColor = [UIColor clearColor];
+    w.rootViewController = vc;
+    UIView *red = [[UIView alloc] initWithFrame:CGRectMake(20, 0, 60, 40)];
+    red.backgroundColor = [UIColor redColor];
+    [vc.view addSubview:red];
+    // 3秒后自动消失，避免长期干扰
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        [w setHidden:YES];
+    });
+}
+
 - (void)ensureOverlayWindow {
     if (self.overlayWindow) return;
+    NSLog(@"[HideAllApps] ensureOverlayWindow creating...");
     CGRect screen = [UIScreen mainScreen].bounds;
     self.overlayWindow = [[UIWindow alloc] initWithFrame:screen];
     self.overlayWindow.windowLevel = UIWindowLevelStatusBar + 1000;
@@ -81,10 +108,11 @@
     self.container.backgroundColor = [UIColor clearColor];
     self.container.userInteractionEnabled = NO;
     [vc.view addSubview:self.container];
+    NSLog(@"[HideAllApps] ensureOverlayWindow done");
 }
 
-// Tweak.x 调用：App 激活
 - (void)noteAppBecameActive:(NSString *)bundleID {
+    NSLog(@"[HideAllApps] noteAppBecameActive: %@", bundleID);
     if (![self isEnabled]) return;
     if (!bundleID || bundleID.length == 0) return;
     if ([bundleID hasPrefix:@"com.apple."]) return;
@@ -94,8 +122,8 @@
     [self refresh];
 }
 
-// Tweak.x 调用：App 退出
 - (void)noteAppExited:(NSString *)bundleID {
+    NSLog(@"[HideAllApps] noteAppExited: %@", bundleID);
     if (!bundleID) return;
     [self.visibleBundleIDs removeObject:bundleID];
     [self refresh];
@@ -122,6 +150,7 @@
 }
 
 - (void)refresh {
+    NSLog(@"[HideAllApps] refresh called, enabled=%d", [self isEnabled]);
     if (![self isEnabled]) {
         [self teardown];
         return;
@@ -138,9 +167,13 @@
     if (bidsToShow.count == 0) {
         bidsToShow = @[@"com.apple.Preferences"];
     }
+    NSLog(@"[HideAllApps] drawing %lu icons, size=%f", (unsigned long)bidsToShow.count, size);
     for (NSString *bid in bidsToShow) {
         UIImage *icon = [self iconForBundleID:bid];
-        if (!icon) continue;
+        if (!icon) {
+            NSLog(@"[HideAllApps] icon nil for %@", bid);
+            continue;
+        }
         UIImageView *iv = [[UIImageView alloc] initWithImage:icon];
         iv.frame = CGRectMake(x, 0, size, size);
         iv.layer.cornerRadius = size * 0.22;
@@ -158,6 +191,7 @@
     if (startX + totalW > winW - 4) startX = winW - totalW - 4;
     CGFloat y = [self verticalOffset];
     self.container.frame = CGRectMake(startX, y, totalW, size);
+    NSLog(@"[HideAllApps] container frame = %@", NSStringFromCGRect(self.container.frame));
 }
 
 - (void)teardown {
