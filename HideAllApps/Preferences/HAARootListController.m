@@ -52,7 +52,6 @@
         }
 #pragma clang diagnostic pop
     }
-
     pid_t pid;
     const char *killPaths[] = {
         "/var/jb/usr/bin/sbreload",
@@ -125,6 +124,17 @@
         [leftDown setProperty:@"leftDownEnabled" forKey:@"key"];
         [leftDown setProperty:@NO forKey:@"default"];
         [specs addObject:leftDown];
+
+        PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"左侧下滑触发区域"];
+        [groupZone setProperty:@"避开系统「左上角下拉通知中心」手势，建议选「左侧中段」或「左侧下半」" forKey:@"footerText"];
+        [specs addObject:groupZone];
+
+        NSArray *zoneNames = @[@"左侧上半", @"左侧中段", @"左侧下半", @"整个左侧"];
+        for (NSInteger i = 0; i < zoneNames.count; i++) {
+            PSSpecifier *sp = [PSSpecifier preferenceSpecifierNamed:zoneNames[i] target:self set:@selector(setZoneValue:specifier:) get:@selector(zoneValue:) detail:nil cell:PSSwitchCell edit:nil];
+            [sp setProperty:@(i) forKey:@"zoneIndex"];
+            [specs addObject:sp];
+        }
 
         PSSpecifier *groupSB = [PSSpecifier groupSpecifierWithName:@"状态栏显示 App 图标"];
         [groupSB setProperty:@"打开过的 App 图标会显示在状态栏，App 完全退出后消失" forKey:@"footerText"];
@@ -215,6 +225,29 @@
     } else {
         if ([[d objectForKey:@"gestureType"] integerValue] == idx) {
             [d setInteger:0 forKey:@"gestureType"];
+            [d synchronize];
+            notify_post(kDarwinNotification);
+        }
+    }
+    [self reloadSpecifiers];
+}
+
+- (id)zoneValue:(PSSpecifier *)specifier {
+    NSInteger idx = [[specifier propertyForKey:@"zoneIndex"] integerValue];
+    NSInteger cur = [[self defaults] integerForKey:@"leftDownZone"];
+    return @(idx == cur);
+}
+
+- (void)setZoneValue:(id)value specifier:(PSSpecifier *)specifier {
+    NSInteger idx = [[specifier propertyForKey:@"zoneIndex"] integerValue];
+    NSUserDefaults *d = [self defaults];
+    if ([value boolValue]) {
+        [d setInteger:idx forKey:@"leftDownZone"];
+        [d synchronize];
+        notify_post(kDarwinNotification);
+    } else {
+        if ([[d objectForKey:@"leftDownZone"] integerValue] == idx) {
+            [d setInteger:0 forKey:@"leftDownZone"];
             [d synchronize];
             notify_post(kDarwinNotification);
         }
