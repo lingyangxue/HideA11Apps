@@ -35,6 +35,24 @@
             [weakSelf refresh];
         });
 
+        // 监听 App 激活 / 退出通知（iOS 17 上这两个通知依然有效）
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(appBecameActive:)
+                                                     name:@"SBApplicationDidBecomeActiveNotification"
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(appDidExit:)
+                                                     name:@"SBApplicationDidExitNotification"
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(appBecameActive:)
+                                                     name:@"UIApplicationDidBecomeActiveNotification"
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(appDidEnterBackground:)
+                                                     name:@"UIApplicationDidEnterBackgroundNotification"
+                                                   object:nil];
+
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
             [weakSelf updatePollingState];
@@ -136,7 +154,7 @@
     if ([shared respondsToSelector:@selector(allApplications)]) {
         apps = [shared performSelector:@selector(allApplications)];
     }
-    if (!apps && [shared respondsToSelector:NSSelectorFromString(@"applications")]) {
+    if (!apps(@" && [shared respondsToSelector:NSSelectorFromString(@"applications")]) {
         apps = [shared performSelector:NSSelectorFromString(@"applications")];
     }
     if (!apps) return running;
@@ -150,19 +168,26 @@
         if (!bid || bid.length == 0) continue;
         if ([bid hasPrefix:@"com.apple."]) continue;
 
+        // iOS 17 用 backgroundState 判断（0=未运行, 1=启动中, 2=前台, 3=后台）
         BOOL isRunning = NO;
 
-        if ([app respondsToSelector:@selector(isRunning)]) {
+        if ([app respondsToSelector:NSSelectorFromString(@"backgroundState")]) {
+            NSInteger (*fn)(id, SEL) = (NSInteger (*)(id, SEL))objc_msgSend;
+            NSInteger state = fn(app, NSSelectorFromString(@"backgroundState"));
+            if (state >= 1) isRunning = YES;
+        }
+        if (!isRunning && [app respondsToSelector:@selector(isRunning)]) {
             BOOL (*fn)(id, SEL) = (BOOL (*)(id, SEL))objc_msgSend;
             isRunning = fn(app, @selector(isRunning));
         }
         if (!isRunning && [app respondsToSelector:NSSelectorFromString(@"isRunningOrSuspended")]) {
             BOOL (*fn)(id, SEL) = (BOOL (*)(id, SEL))objc_msgSend;
-            isRunning = fn(app, NSSelectorFromString(@"isRunningOrSuspended"));
+            isRunning = fn(app, NSSelectorFromStringisRunningOrSuspended"));
         }
-        if (!isRunning && [app respondsToSelector:NSSelectorFromString(@"backgroundState")]) {
+        // 兜底：只要进程还存在就认为在运行
+        if (!isRunning && [app respondsToSelector:NSSelectorFromString(@"processState")]) {
             NSInteger (*fn)(id, SEL) = (NSInteger (*)(id, SEL))objc_msgSend;
-            NSInteger state = fn(app, NSSelectorFromString(@"backgroundState"));
+            NSInteger state = fn(app, NSSelectorFromString(@"processState"));
             if (state >= 2) isRunning = YES;
         }
 
@@ -183,6 +208,36 @@
         [self.visibleBundleIDs setArray:running];
         [self refresh];
     }
+}
+
+#pragma mark - Notifications
+
+- (void)appBecameActive:(NSNotification *)note {
+    NSDictionary *info = note.userInfo;
+    NSString *bid = info[@"bundleID"];
+    if (!bid) {
+        id obj = note.object;
+        if (obj && [obj respondsToSelector:@selector(bundleIdentifier)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            bid = [obj performSelector:@selector(bundleIdentifier)];
+#pragma clang diagnostic pop
+        }
+    }
+    if (bid.length && ![bid hasPrefix:@"com.apple."]) {
+        if (![self.visibleBundleIDs containsObject:bid]) {
+            [self.visibleBundleIDs addObject:bid];
+        }
+        [self refresh];
+    }
+}
+
+- (void)appDidExit:(NSNotification *)note {
+    [self pollRunningApps];
+}
+
+- (void)appDidEnterBackground:(NSNotification *)note {
+    [self pollRunningApps];
 }
 
 #pragma mark - Icon Rendering
@@ -219,8 +274,6 @@
     [self ensureOverlayWindow];
     if (!self.container || !self.overlayWindow) return;
 
-    [self.overlayWindow setHidden:NO];
-    [self.overlayWindow makeKeyAndVisible];
     [self.overlayWindow setHidden:NO];
 
     for (UIView *v in self.iconViews) [v removeFromSuperview];
