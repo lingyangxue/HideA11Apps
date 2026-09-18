@@ -6,8 +6,6 @@
 
 #define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
-
-// ⚠️ 修改这里即可改变激活密码（跟 HAAManager.m 里必须一致）
 #define kActivationPassword @"HideAllApps2024"
 
 @interface HAAConfirmRespringController : PSListController
@@ -67,21 +65,27 @@
 
         BOOL activated = [[self defaults] boolForKey:@"activated"];
 
-        // ===== 激活区（未激活时显示） =====
+        // ===== 未激活：只显示激活开关 =====
         if (!activated) {
             PSSpecifier *groupAct = [PSSpecifier groupSpecifierWithName:@"激活插件"];
-            [groupAct setProperty:@"请输入激活密码后才能使用插件功能" forKey:@"footerText"];
+            [groupAct setProperty:@"打开下方开关，输入密码后激活" forKey:@"footerText"];
             [specs addObject:groupAct];
 
-            PSSpecifier *activate = [PSSpecifier preferenceSpecifierNamed:@"输入激活密码..." target:self set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
-            [activate setProperty:NSStringFromSelector(@selector(showActivationAlert)) forKey:@"action"];
+            PSSpecifier *activate = [PSSpecifier preferenceSpecifierNamed:@"点击激活"
+                                                                   target:self
+                                                                      set:@selector(setActivateSwitch:specifier:)
+                                                                      get:@selector(getActivateSwitch:)
+                                                                   detail:nil
+                                                                     cell:PSSwitchCell
+                                                                     edit:nil];
+            [activate setProperty:@NO forKey:@"default"];
             [specs addObject:activate];
 
             _specifiers = specs;
             return _specifiers;
         }
 
-        // ===== 已激活：显示所有功能 =====
+        // ===== 已激活：显示全部 =====
         PSSpecifier *group0 = [PSSpecifier groupSpecifierWithName:@"✅ 已激活"];
         [group0 setProperty:@"插件已激活，可以使用所有功能" forKey:@"footerText"];
         [specs addObject:group0];
@@ -186,6 +190,19 @@
 
 #pragma mark - Activation
 
+- (id)getActivateSwitch:(PSSpecifier *)specifier {
+    return @NO;
+}
+
+- (void)setActivateSwitch:(id)value specifier:(PSSpecifier *)specifier {
+    if (![value boolValue]) return;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        [self showActivationAlert];
+    });
+    [self reloadSpecifiers];
+}
+
 - (void)showActivationAlert {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"激活"
                                                                    message:@"请输入激活密码"
@@ -202,7 +219,6 @@
             [d setBool:YES forKey:@"activated"];
             [d synchronize];
             notify_post(kDarwinNotification);
-
             UIAlertController *ok = [UIAlertController alertControllerWithTitle:@"激活成功"
                                                                         message:@"插件已激活，重启桌面后生效"
                                                                  preferredStyle:UIAlertControllerStyleAlert];
@@ -214,14 +230,16 @@
             UIAlertController *fail = [UIAlertController alertControllerWithTitle:@"激活失败"
                                                                           message:@"密码错误"
                                                                    preferredStyle:UIAlertControllerStyleAlert];
-            [fail addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+            [fail addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+                [self reloadSpecifiers];
+            }]];
             [self presentViewController:fail animated:YES completion:nil];
         }
     }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
-#pragma mark - 通用读写
+#pragma mark - 通用
 
 - (id)readPreferenceValue:(PSSpecifier *)specifier {
     NSString *key = [specifier propertyForKey:@"key"];
