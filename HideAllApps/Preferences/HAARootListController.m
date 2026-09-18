@@ -30,9 +30,12 @@
     [alert addAction:[UIAlertAction actionWithTitle:@"重启"
                                               style:UIAlertActionStyleDestructive
                                             handler:^(UIAlertAction *a) {
+        // 直接 kill SpringBoard
         pid_t pid;
         const char *args[] = {"killall", "-9", "SpringBoard", NULL};
         posix_spawn(&pid, "/var/jb/usr/bin/killall", NULL, NULL, (char * const *)args, NULL);
+        // 备用路径
+        posix_spawn(&pid, "/usr/bin/killall", NULL, NULL, (char * const *)args, NULL);
     }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
@@ -123,7 +126,7 @@
         [specs addObject:posSlider];
 
         PSSpecifier *groupY = [PSSpecifier groupSpecifierWithName:@"垂直位置（拖动滑块）"];
-        [groupY setProperty:@"0 = 最顶，20 = 稍微往下。默认 8" forKey:@"footerText"];
+        [groupY setProperty:@"0 = 最顶，24 = 往下。默认 8" forKey:@"footerText"];
         [specs addObject:groupY];
 
         PSSpecifier *ySlider = [PSSpecifier preferenceSpecifierNamed:@"垂直"
@@ -201,13 +204,11 @@
     [self reloadSpecifiers];
 }
 
-// 大小滑块
 - (id)getSizeSlider:(PSSpecifier *)specifier {
     double v = [[self defaults] doubleForKey:@"statusBarIconSize"];
     if (v < 6) v = 14;
     return @(v);
 }
-
 - (void)setSizeSlider:(id)value specifier:(PSSpecifier *)specifier {
     double v = [value doubleValue];
     NSUserDefaults *d = [self defaults];
@@ -216,13 +217,11 @@
     notify_post(kDarwinNotification);
 }
 
-// 水平位置滑块
 - (id)getPosSlider:(PSSpecifier *)specifier {
     id v = [[self defaults] objectForKey:@"statusBarIconPos"];
     if (!v) return @0.5;
     return v;
 }
-
 - (void)setPosSlider:(id)value specifier:(PSSpecifier *)specifier {
     double v = [value doubleValue];
     NSUserDefaults *d = [self defaults];
@@ -231,13 +230,11 @@
     notify_post(kDarwinNotification);
 }
 
-// 垂直位置滑块
 - (id)getYSlider:(PSSpecifier *)specifier {
     id v = [[self defaults] objectForKey:@"statusBarIconY"];
     if (!v) return @8;
     return v;
 }
-
 - (void)setYSlider:(id)value specifier:(PSSpecifier *)specifier {
     double v = [value doubleValue];
     NSUserDefaults *d = [self defaults];
