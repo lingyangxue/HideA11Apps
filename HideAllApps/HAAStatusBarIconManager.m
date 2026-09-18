@@ -1,5 +1,6 @@
 #import "HAAStatusBarIconManager.h"
 #import <notify.h>
+#import <objc/message.h>
 
 #define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
@@ -118,26 +119,41 @@
 
     id shared = nil;
     if ([appCtrlClass respondsToSelector:@selector(sharedInstance)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         shared = [appCtrlClass performSelector:@selector(sharedInstance)];
+#pragma clang diagnostic pop
     }
     if (!shared && [appCtrlClass respondsToSelector:@selector(sharedInstanceIfExists)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         shared = [appCtrlClass performSelector:@selector(sharedInstanceIfExists)];
+#pragma clang diagnostic pop
     }
     if (!shared) return running;
 
     NSArray *apps = nil;
     if ([shared respondsToSelector:@selector(allApplications)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         apps = [shared performSelector:@selector(allApplications)];
+#pragma clang diagnostic pop
     }
     if (!apps && [shared respondsToSelector:NSSelectorFromString(@"applications")]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         apps = [shared performSelector:NSSelectorFromString(@"applications")];
+#pragma clang diagnostic pop
     }
     if (!apps) return running;
 
     for (id app in apps) {
         NSString *bid = nil;
         if ([app respondsToSelector:@selector(bundleIdentifier)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
             bid = [app performSelector:@selector(bundleIdentifier)];
+#pragma clang diagnostic pop
         }
         if (!bid || bid.length == 0) continue;
         if ([bid hasPrefix:@"com.apple."]) continue;
@@ -145,16 +161,16 @@
         BOOL isRunning = NO;
 
         if ([app respondsToSelector:@selector(isRunning)]) {
-            isRunning = [app performSelector:@selector(isRunning)];
+            BOOL (*fn)(id, SEL) = (BOOL (*)(id, SEL))objc_msgSend;
+            isRunning = fn(app, @selector(isRunning));
         }
         if (!isRunning && [app respondsToSelector:NSSelectorFromString(@"isRunningOrSuspended")]) {
-            isRunning = [app performSelector:NSSelectorFromString(@"isRunningOrSuspended")];
+            BOOL (*fn)(id, SEL) = (BOOL (*)(id, SEL))objc_msgSend;
+            isRunning = fn(app, NSSelectorFromString(@"isRunningOrSuspended"));
         }
         if (!isRunning && [app respondsToSelector:NSSelectorFromString(@"backgroundState")]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-            long long state = (long long)[app performSelector:NSSelectorFromString(@"backgroundState")];
-#pragma clang diagnostic pop
+            NSInteger (*fn)(id, SEL) = (NSInteger (*)(id, SEL))objc_msgSend;
+            NSInteger state = fn(app, NSSelectorFromString(@"backgroundState"));
             if (state >= 2) isRunning = YES;
         }
 
@@ -217,7 +233,6 @@
     CGFloat spacing = 4;
     CGFloat x = 0;
 
-    // 调试模式：列表为空时显示设置图标，验证容器是否正常
     NSArray *bidsToShow = self.visibleBundleIDs;
     if (bidsToShow.count == 0) {
         bidsToShow = @[@"com.apple.Preferences"];
