@@ -19,21 +19,17 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
+    // 左侧边缘
     UIScreenEdgePanGestureRecognizer *leftEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftEdgePan:)];
     leftEdge.edges = UIRectEdgeLeft;
     leftEdge.cancelsTouchesInView = NO;
     [view addGestureRecognizer:leftEdge];
 
+    // 右侧边缘
     UIScreenEdgePanGestureRecognizer *rightEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRightEdgePan:)];
     rightEdge.edges = UIRectEdgeRight;
     rightEdge.cancelsTouchesInView = NO;
     [view addGestureRecognizer:rightEdge];
-
-    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
-    pan.minimumNumberOfTouches = 1;
-    pan.maximumNumberOfTouches = 1;
-    pan.cancelsTouchesInView = NO;
-    [view addGestureRecognizer:pan];
 }
 
 - (void)setupStatusBarGestures:(UIView *)view {
@@ -58,13 +54,17 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
 - (void)installGesturesIntoSpringBoard {
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         NSString *cls = NSStringFromClass(w.class);
-        if ([cls containsString:@"StatusBar"]) { [self setupStatusBarGestures:w]; }
+        if ([cls containsString:@"StatusBar"]) {
+            [self setupStatusBarGestures:w];
+            continue;  // 状态栏窗口不加边缘手势
+        }
         if (w.bounds.size.width > 300 && w.bounds.size.height > 600) {
             [self setupGesturesOnView:w];
         }
     }
 }
 
+// 左侧下滑 → 切换
 - (void)handleLeftEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled || !m.activated || !m.leftDownEnabled) return;
@@ -84,6 +84,7 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     [m toggleHidden];
 }
 
+// 右侧下滑 → 切换
 - (void)handleRightEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
     if (!m.enabled || !m.activated || !m.rightDownEnabled) return;
@@ -101,34 +102,6 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (yRatio > m.zoneBottomRatio) return;
 
     [m toggleHidden];
-}
-
-- (void)handlePan:(UIPanGestureRecognizer *)gr {
-    HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled || !m.activated) return;
-    if (gr.state != UIGestureRecognizerStateEnded) return;
-
-    CGPoint startLoc = [gr locationInView:gr.view];
-    CGPoint t = [gr translationInView:gr.view];
-    CGSize size = gr.view.bounds.size;
-
-    if (t.y < 30) return;
-    if (fabs(t.y) < fabs(t.x)) return;
-
-    CGFloat yRatio = startLoc.y / size.height;
-    if (yRatio < m.zoneTopRatio) return;
-    if (yRatio > m.zoneBottomRatio) return;
-
-    if (startLoc.x <= m.zoneWidth) {
-        if (!m.leftDownEnabled) return;
-        [m toggleHidden];
-        return;
-    }
-    if (startLoc.x >= size.width - m.zoneWidth) {
-        if (!m.rightDownEnabled) return;
-        [m toggleHidden];
-        return;
-    }
 }
 
 - (void)handleStatusBarSingleTap:(UITapGestureRecognizer *)gr {
