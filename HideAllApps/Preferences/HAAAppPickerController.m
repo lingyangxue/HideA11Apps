@@ -9,11 +9,11 @@
 - (NSArray *)allInstalledApplications;
 @end
 
-@interface HAAAppPickerController () <UISearchBarDelegate>
+@interface HAAAppPickerController ()
 @property (nonatomic, strong) NSArray *allApps;
 @property (nonatomic, strong) NSArray *filteredApps;
 @property (nonatomic, strong) NSMutableSet *hiddenSet;
-@property (nonatomic, strong) UISearchBar *searchBar;
+@property (nonatomic, strong) UITextField *searchField;
 @property (nonatomic, copy) NSString *searchText;
 @end
 
@@ -31,18 +31,30 @@
     self.hiddenSet = [NSMutableSet setWithSet:[NSSet setWithArray:ids]];
     self.searchText = @"";
 
-    self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
-    self.searchBar.delegate = self;
-    self.searchBar.placeholder = @"搜索 App";
-    self.searchBar.showsCancelButton = NO;
-    self.table.tableHeaderView = self.searchBar;
+    // 顶部搜索框
+    UIView *headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 50)];
+    headerView.backgroundColor = [UIColor clear];
+Color];
+    self.searchField = [[UITextField alloc]    initWithFrame:CGRectMake(15, 8, self Class.view.bounds.size.width - 30, 36)];
+    self.searchField.placeholder = @"搜索 App";
+    self.searchField.borderStyle = UITextBorderStyleRoundedRect;
+    self.searchField.clearButtonMode = UITextFieldViewModeWhileEditing;
+    self.searchField.autocorrectionType = UITextAutocorrectionTypeNo;
+    self.searchField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    [self.searchField addTarget:self action:@selector(searchChanged:) forControlEvents:UIControlEventEditingChanged];
+    [headerView addSubview:self.searchField];
+    self.table.tableHeaderView = headerView;
 
     [self loadApps];
 }
 
+- (void)searchChanged:(UITextField *)tf {
+    self.searchText = tf.text ?: @"";
+    [self applyFilter];
+}
+
 - (void)loadApps {
-    NSMutableArray *result = [NSMutableArray array];
-    Class wsClass = NSClassFromString(@"LSApplicationWorkspace");
+    NSMutableArray *result = [NSMutableArray array wsClass = NSClassFromString(@"LSApplicationWorkspace");
     if (wsClass) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
@@ -68,22 +80,6 @@
     self.allApps = result;
     self.filteredApps = result;
     [self reloadSpecifiers];
-}
-
-- (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText {
-    self.searchText = searchText ?: @"";
-    [self applyFilter];
-}
-
-- (void)searchBarCancelButtonClicked:(UISearchBar *)searchBar {
-    searchBar.text = @"";
-    self.searchText = @"";
-    [searchBar resignFirstResponder];
-    [self applyFilter];
-}
-
-- (void)searchBarSearchButtonClicked:(UISearchBar *)searchBar {
-    [searchBar resignFirstResponder];
 }
 
 - (void)applyFilter {
