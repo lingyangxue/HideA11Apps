@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check cache
         run: |
@@ -30,6 +32,26 @@ jobs:
           theos-src: 'https://github.com/roothide/theos'
           theos-sdks: 'https://github.com/theos/sdks'
 
+      - name: Auto bump version
+        run: |
+          cd HideAllApps
+          # 读取当前版本号
+          CUR_VER=$(grep -m1 '^Version:' control | awk '{print $2}')
+          echo "当前版本: $CUR_VER"
+          # 拆分 x.y.z
+          MAJOR=$(echo $CUR_VER | cut -d. -f1)
+          MINOR=$(echo $CUR_VER | cut -d. -f2)
+          PATCH=$(echo $CUR_VER | cut -d. -f3)
+          if [ -z "$PATCH" ]; then PATCH=0; fi
+          # 补丁号 +1
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VER="${MAJOR}.${MINOR}.${NEW_PATCH}"
+          echo "新版本: $NEW_VER"
+          # 更新 control
+          sed -i '' "s/^Version: .*/Version: $NEW_VER/" control
+          cat control
+          echo "NEW_VER=$NEW_VER" >> $GITHUB_ENV
+
       - name: Build package
         run: |
           cd HideAllApps
@@ -44,5 +66,5 @@ jobs:
       - name: Upload deb
         uses: actions/upload-artifact@v4
         with:
-          name: HideAllApps-deb
+          name: HideAllApps-deb-v${{ env.NEW_VER }}
           path: ${{ github.workspace }}/HideAllApps/packages/*.deb
