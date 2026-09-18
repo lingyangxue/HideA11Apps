@@ -54,49 +54,38 @@
 }
 
 - (CGFloat)iconSize {
-    NSInteger s = [[self defaults] integerForKey:@"statusBarIconSize"];
-    if (s <= 0) s = 14;
+    double s = [[self defaults] doubleForKey:@"statusBarIconSize"];
+    if (s < 6) s = 14;
     return (CGFloat)s;
 }
 
 - (CGFloat)positionRatio {
     id v = [[self defaults] objectForKey:@"statusBarIconPos"];
-    if (!v) return 0.9;
+    if (!v) return 0.5;
+    return [v doubleValue];
+}
+
+- (CGFloat)verticalOffset {
+    id v = [[self defaults] objectForKey:@"statusBarIconY"];
+    if (!v) return 8;
     return [v doubleValue];
 }
 
 #pragma mark - Overlay Window
 
-- (UIWindowScene *)activeScene {
-    for (UIScene *s in [UIApplication sharedApplication].connectedScenes) {
-        if ([s isKindOfClass:[UIWindowScene class]] &&
-            s.activationState == UISceneActivationStateForegroundActive) {
-            return (UIWindowScene *)s;
-        }
-    }
-    for (UIScene *s in [UIApplication sharedApplication].connectedScenes) {
-        if ([s isKindOfClass:[UIWindowScene class]]) {
-            return (UIWindowScene *)s;
-        }
-    }
-    return nil;
-}
-
 - (void)ensureOverlayWindow {
     if (self.overlayWindow) return;
 
-    UIWindowScene *scene = [self activeScene];
-    if (!scene) return;
-
-    self.overlayWindow = [[UIWindow alloc] initWithWindowScene:scene];
-    self.overlayWindow.frame = scene.coordinateSpace.bounds;
-    self.overlayWindow.windowLevel = 1000000;  // 比状态栏还高
+    CGRect screen = [UIScreen mainScreen].bounds;
+    self.overlayWindow = [[UIWindow alloc] initWithFrame:screen];
+    self.overlayWindow.windowLevel = UIWindowLevelStatusBar + 1000;
     self.overlayWindow.backgroundColor = [UIColor clearColor];
     self.overlayWindow.userInteractionEnabled = NO;
     self.overlayWindow.hidden = NO;
 
     UIViewController *vc = [[UIViewController alloc] init];
     vc.view.backgroundColor = [UIColor clearColor];
+    vc.view.frame = screen;
     self.overlayWindow.rootViewController = vc;
 
     self.container = [[UIView alloc] init];
@@ -231,6 +220,8 @@
     if (!self.container || !self.overlayWindow) return;
 
     [self.overlayWindow setHidden:NO];
+    [self.overlayWindow makeKeyAndVisible];
+    [self.overlayWindow setHidden:NO];
 
     for (UIView *v in self.iconViews) [v removeFromSuperview];
     [self.iconViews removeAllObjects];
@@ -264,8 +255,8 @@
     if (startX < 4) startX = 4;
     if (startX + totalW > winW - 4) startX = winW - totalW - 4;
 
-    // 状态栏那一行：y = 8
-    self.container.frame = CGRectMake(startX, 8, totalW, size);
+    CGFloat y = [self verticalOffset];
+    self.container.frame = CGRectMake(startX, y, totalW, size);
 }
 
 - (void)teardown {
