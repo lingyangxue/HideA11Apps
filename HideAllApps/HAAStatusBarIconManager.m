@@ -1,5 +1,6 @@
 #import "HAAStatusBarIconManager.h"
 #import <notify.h>
+#import <objc/runtime.h>
 
 #define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
@@ -34,9 +35,9 @@
                        dispatch_get_main_queue(), ^{
             [weakSelf refresh];
         });
-        self.pollTimer = [NSTimer scheduledTimerWithTimeInterval:1.0
+        self.pollTimer = [NSTimer scheduledTimerWithTimeInterval:1.5
                                                           target:self
-                                                        selector:@selector(refresh)
+                                                        selector:@selector(scanApps)
                                                         userInfo:nil
                                                          repeats:YES];
     }
@@ -58,9 +59,10 @@
     return (CGFloat)s;
 }
 
+// 水平位置：0.0 = 最左，1.0 = 最右
 - (CGFloat)positionRatio {
     id v = [[self defaults] objectForKey:@"statusBarIconPos"];
-    if (!v) return 0.5;
+    if (!v) return 0.05;
     return [v doubleValue];
 }
 
@@ -76,31 +78,86 @@
         if ([cls containsString:@"StatusBar"]) continue;
         if ([cls containsString:@"Keyboard"]) continue;
         if ([cls containsString:@"Alert"]) continue;
-        if (w.bounds.size.width > 300 && w.bounds.size.height > 600) {
-            return w;
-        }
+        if (w.bounds.size.width > 300 && w.bounds.size.height > 600) return w;
     }
     UIWindow *kw = [UIApplication sharedApplication].keyWindow;
     if (kw) return kw;
-    if ([UIApplication sharedApplication].windows.count > 0) {
-        return [UIApplication sharedApplication].windows.firstObject;
-    }
+    if ([UIApplication sharedApplication].windows.count > 0) return [UIApplication sharedApplication].windows.firstObject;
     return nil;
 }
 
+// 扫描所有运行中的 App
+- (void)scanApps {
+    if (![self isEnabled]) return;
+
+    Class appCtrlClass = NSClassFromString(@"SBApplicationController");
+    if (!appCtrlClass) return;
+
+    id shared = nil;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+    if ([appCtrlClass respondsToSelector:@selector(sharedInstance)]) {
+        shared = [appCtrlClass performSelector:@selector(sharedInstance)];
+    }
+    if (!shared) {
+#pragma clang diagnostic pop
+        return;
+    }
+    NSArray *apps = nil;
+    if ([shared respondsToSelector:@selector(allApplications)]) {
+        apps = [shared performSelector:@selector(allApplications)];
+    }
+#pragma clang diagnostic pop
+    if (!apps) return;
+
+    NSMutableArray *running = [NSMutableArray array];
+    for (id app in apps) {
+        NSString *bid = nil;
+        if ([app respondsToSelector:@selector(bundleIdentifier)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            bid = [app performSelector:@selector(bundleIdentifier)];
+#pragma clang diagnostic pop
+        }
+        if (!bid || bid.length == 0) continue;
+        if ([bid hasPrefix:@"com.apple."]) continue;
+
+        BOOL isRunning = NO;
+        if ([app respondsToSelector:@selector(isRunning)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            isRunning = [app performSelector:@selector(isRunning)];
+#pragma clang diagnostic pop
+        }
+        if (!isRunning) continue;
+        [running addObject:bid];
+    }
+
+    // 更新列表：新的插最前，旧的保持
+    NSMutableArray *newList = [NSMutableArray array];
+    for (NSString *bid in running) {
+        if (![newList containsObject:bid]) [newList addObject:bid];
+    }
+    // 最多 6 个
+    while (newList.count > 6) [newList removeLastObject];
+
+    if (![newList isEqualToArray:self.visibleBundleIDs]) {
+        [self.visibleBundleIDs setArray:newList];
+        [self refresh];
+    }
+}
+
 - (void)noteAppBecameActive:(NSString *)bundleID {
-    NSLog(@"[HideAllApps] noteAppBecameActive: %@", bundleID);
     if (![self isEnabled]) return;
     if (!bundleID || bundleID.length == 0) return;
     if ([bundleID hasPrefix:@"com.apple."]) return;
-    if (![self.visibleBundleIDs containsObject:bundleID]) {
-        [self.visibleBundleIDs addObject:bundleID];
-    }
+    [self.visibleBundleIDs removeObject:bundleID];
+    [self.visibleBundleIDs insertObject:bundleID atIndex:0];
+    while (self.visibleBundleIDs.count > 6) [self.visibleBundleIDs removeLastObject];
     [self refresh];
 }
 
 - (void)noteAppExited:(NSString *)bundleID {
-    NSLog(@"[HideAllApps] noteAppExited: %@", bundleID);
     if (!bundleID) return;
     [self.visibleBundleIDs removeObject:bundleID];
     [self refresh];
@@ -169,10 +226,12 @@
         x += size + spacing;
     }
 
-    // 固定显示在屏幕左侧 30pt 处
+    // 位置：用水平滑块
     CGFloat hostW = host.bounds.size.width;
     CGFloat totalW = MAX(x - spacing, 1);
-    CGFloat startX = 30;
+    CGFloat ratio = [self positionRatio];
+    CGFloat startX = (hostW - totalW) * ratio;
+    if (startX < 4) startX = 4;
     if (startX + totalW > hostW - 4) startX = hostW - totalW - 4;
 
     CGFloat y = [self verticalOffset];
