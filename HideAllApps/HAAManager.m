@@ -5,9 +5,6 @@
 NSString * const kHAASuiteName = @"com.yourname.hideallapps";
 NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps/prefsChanged";
 
-// ⚠️ 修改这里即可改变激活密码
-NSString * const kHAActivationPassword = @"HideAllApps2024";
-
 @interface HAAManager ()
 @property (nonatomic, assign) int notifyToken;
 @end
@@ -43,12 +40,10 @@ NSString * const kHAActivationPassword = @"HideAllApps2024";
 
 - (void)reload {
     NSUserDefaults *d = [self defaults];
-    self.activated                  = [d boolForKey:@"activated"];
     self.enabled                    = [d boolForKey:@"enabled"];
     self.statusBarSingleTapEnabled  = [d boolForKey:@"statusBarSingleTapEnabled"];
     self.statusBarDoubleTapEnabled  = [d boolForKey:@"statusBarDoubleTapEnabled"];
     self.shakeEnabled               = [d boolForKey:@"shakeEnabled"];
-
     self.leftDownEnabled            = [d boolForKey:@"leftDownEnabled"];
     self.rightDownEnabled           = [d boolForKey:@"rightDownEnabled"];
 
@@ -64,17 +59,12 @@ NSString * const kHAActivationPassword = @"HideAllApps2024";
     NSArray *arr                    = [d arrayForKey:@"hiddenBundleIDs"] ?: @[];
     self.hiddenBundleIDs            = [NSSet setWithArray:arr];
 
-    if (self.hideAll && self.activated) [self startRefreshTimer];
+    if (self.hideAll && self.enabled) [self startRefreshTimer];
     else [self stopRefreshTimer];
 }
 
-// 关键：所有功能都要求 activated == YES
-- (BOOL)isActive {
-    return self.enabled && self.activated;
-}
-
 - (BOOL)shouldHideBundleID:(NSString *)bundleID {
-    if (![self isActive]) return NO;
+    if (!self.enabled) return NO;
     if (!bundleID || bundleID.length == 0) return NO;
     if ([bundleID isEqualToString:@"com.apple.springboard"]) return NO;
     if (self.hideAll) return YES;
@@ -82,13 +72,13 @@ NSString * const kHAActivationPassword = @"HideAllApps2024";
 }
 
 - (void)toggleHidden {
-    if (![self isActive]) return;
+    if (!self.enabled) return;
     if (self.hideAll) [self showAllNow];
     else [self hideAllNow];
 }
 
 - (void)hideAllNow {
-    if (![self isActive]) return;
+    if (!self.enabled) return;
     if (self.hideAll) { [self refreshAllIconViews]; return; }
     self.hideAll = YES;
     NSUserDefaults *d = [self defaults];
@@ -100,7 +90,7 @@ NSString * const kHAActivationPassword = @"HideAllApps2024";
 }
 
 - (void)showAllNow {
-    if (![self isActive]) return;
+    if (!self.enabled) return;
     if (!self.hideAll) { [self refreshAllIconViews]; return; }
     self.hideAll = NO;
     NSUserDefaults *d = [self defaults];
@@ -128,8 +118,7 @@ NSString * const kHAActivationPassword = @"HideAllApps2024";
 }
 
 - (void)applyHiddenStateToIconView:(id)iconView {
-    if (![self isActive]) {
-        // 未激活：把所有图标恢复显示
+    if (!self.enabled) {
         if ([iconView isKindOfClass:[UIView class]]) {
             UIView *v = (UIView *)iconView;
             v.alpha = 1.0;
@@ -183,7 +172,7 @@ NSString * const kHAActivationPassword = @"HideAllApps2024";
 #pragma mark - Debug Border
 
 - (void)showDebugBorder {
-    if (![self isActive]) return;
+    if (!self.enabled) return;
     UIView *host = nil;
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         NSString *cls = NSStringFromClass(w.class);
@@ -198,7 +187,6 @@ NSString * const kHAActivationPassword = @"HideAllApps2024";
     if (!host) return;
 
     CGSize size = host.bounds.size;
-
     for (UIView *v in host.subviews) {
         if (v.tag == 99991) [v removeFromSuperview];
     }
