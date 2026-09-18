@@ -2,6 +2,7 @@
 #import <objc/runtime.h>
 #import <notify.h>
 #import "HAAManager.h"
+#import "HAAGestureManager.h"
 
 @interface SBIconController : UIViewController
 @end
@@ -20,12 +21,25 @@
     %orig;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
+        [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
         [[HAAManager sharedManager] refreshAllIconViews];
     });
 }
 - (void)viewDidAppear:(BOOL)animated {
     %orig;
+    [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
     [[HAAManager sharedManager] refreshAllIconViews];
+}
+%end
+
+%hook UIWindow
+- (void)didMoveToWindow {
+    %orig;
+    NSString *cls = NSStringFromClass(self.class);
+    if ([cls containsString:@"StatusBar"]) return;
+    if (self.bounds.size.width > 300 && self.bounds.size.height > 600) {
+        [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
+    }
 }
 %end
 
@@ -47,8 +61,23 @@
 %end
 
 %ctor {
+    static int showBorderToken = 0;
+    notify_register_dispatch("com.yourname.hideallapps/showBorder",
+                             &showBorderToken,
+                             dispatch_get_main_queue(), ^(int t) {
+        [[HAAManager sharedManager] showDebugBorder];
+    });
+
+    static int hideBorderToken = 0;
+    notify_register_dispatch("com.yourname.hideallapps/hideBorder",
+                             &hideBorderToken,
+                             dispatch_get_main_queue(), ^(int t) {
+        [[HAAManager sharedManager] hideDebugBorder];
+    });
+
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
+        [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
         [[HAAManager sharedManager] refreshAllIconViews];
     });
 }
