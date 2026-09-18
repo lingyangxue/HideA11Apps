@@ -32,21 +32,6 @@
 }
 %end
 
-// 只在主窗口初始化时尝试安装一次，不侵入别的 App
-%hook UIWindow
-- (void)didMoveToWindow {
-    %orig;
-    NSString *cls = NSStringFromClass(self.class);
-    if ([cls containsString:@"StatusBar"]) return;
-    if (self.bounds.size.width > 300 && self.bounds.size.height > 600) {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-            [[HAAGestureManager sharedManager] installGesturesIntoSpringBoard];
-        });
-    }
-}
-%end
-
 %hook SPUIAppResultsViewController
 - (void)setResults:(NSArray *)results {
     HAAManager *mgr = [HAAManager sharedManager];
