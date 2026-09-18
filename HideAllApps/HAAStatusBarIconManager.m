@@ -34,7 +34,6 @@
                        dispatch_get_main_queue(), ^{
             [weakSelf refresh];
         });
-        // 每 1 秒重试一次，保证容器一直存在
         self.pollTimer = [NSTimer scheduledTimerWithTimeInterval:1.0
                                                           target:self
                                                         selector:@selector(refresh)
@@ -71,22 +70,18 @@
     return [v doubleValue];
 }
 
-// 找宿主 view：优先 SpringBoard 主窗口，其次 keyWindow
 - (UIView *)hostView {
-    // 方式 1：找 SpringBoard 的主窗口
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         NSString *cls = NSStringFromClass(w.class);
-        if ([cls containsString:@"StatusBar"]) continue;  // 状态栏窗口不加
+        if ([cls containsString:@"StatusBar"]) continue;
         if ([cls containsString:@"Keyboard"]) continue;
         if ([cls containsString:@"Alert"]) continue;
         if (w.bounds.size.width > 300 && w.bounds.size.height > 600) {
             return w;
         }
     }
-    // 方式 2：keyWindow
     UIWindow *kw = [UIApplication sharedApplication].keyWindow;
     if (kw) return kw;
-    // 方式 3：第一个 window
     if ([UIApplication sharedApplication].windows.count > 0) {
         return [UIApplication sharedApplication].windows.firstObject;
     }
@@ -140,7 +135,6 @@
     UIView *host = [self hostView];
     if (!host) return;
 
-    // 容器不在 host 上就重建
     if (!self.container || self.container.superview != host) {
         [self.container removeFromSuperview];
         self.container = [[UIView alloc] init];
@@ -175,11 +169,10 @@
         x += size + spacing;
     }
 
+    // 固定显示在屏幕左侧 30pt 处
     CGFloat hostW = host.bounds.size.width;
     CGFloat totalW = MAX(x - spacing, 1);
-    CGFloat ratio = [self positionRatio];
-    CGFloat startX = (hostW - totalW) * ratio;
-    if (startX < 4) startX = 4;
+    CGFloat startX = 30;
     if (startX + totalW > hostW - 4) startX = hostW - totalW - 4;
 
     CGFloat y = [self verticalOffset];
