@@ -106,7 +106,6 @@
         [leftDown setProperty:@NO forKey:@"default"];
         [specs addObject:leftDown];
 
-        // 触发区域调节（滑块）
         PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"左侧下滑触发区域（拖动调节）"];
         [groupZone setProperty:@"调整后打开下面的「显示调试边框」可以看到区域范围" forKey:@"footerText"];
         [specs addObject:groupZone];
@@ -133,7 +132,6 @@
         [debugBorder setProperty:@NO forKey:@"default"];
         [specs addObject:debugBorder];
 
-        // 状态栏图标
         PSSpecifier *groupSB = [PSSpecifier groupSpecifierWithName:@"状态栏显示 App 图标"];
         [groupSB setProperty:@"显示最近打开的最多 6 个 App 图标" forKey:@"footerText"];
         [specs addObject:groupSB];
@@ -207,7 +205,6 @@
     notify_post(kDarwinNotification);
 }
 
-// 顶部位置滑块
 - (id)getZoneTop:(PSSpecifier *)specifier {
     id v = [[self defaults] objectForKey:@"zoneTopRatio"];
     return v ?: @0.15;
@@ -219,7 +216,6 @@
     notify_post(kDarwinNotification);
 }
 
-// 底部位置滑块
 - (id)getZoneBottom:(PSSpecifier *)specifier {
     id v = [[self defaults] objectForKey:@"zoneBottomRatio"];
     return v ?: @0.85;
@@ -231,7 +227,6 @@
     notify_post(kDarwinNotification);
 }
 
-// 宽度滑块
 - (id)getZoneWidth:(PSSpecifier *)specifier {
     id v = [[self defaults] objectForKey:@"zoneWidth"];
     return v ?: @150;
@@ -243,22 +238,15 @@
     notify_post(kDarwinNotification);
 }
 
-// 调试边框开关
 - (id)getDebugBorder:(PSSpecifier *)specifier {
-    return @([[self defaults] boolForKey:@"debugBorderEnabled"]);
+    return @NO;
 }
 - (void)setDebugBorder:(id)value specifier:(PSSpecifier *)specifier {
-    BOOL on = [value boolValue];
-    NSUserDefaults *d = [self defaults];
-    [d setBool:on forKey:@"debugBorderEnabled"];
-    [d synchronize];
-    if (on) {
-        // 发通知让 SpringBoard 显示边框
-        notify_post("com.yourname.hideallapps/showBorder");
-    }
+    if (![value boolValue]) return;
+    notify_post("com.yourname.hideallapps/showBorder");
+    [self reloadSpecifiers];
 }
 
-// 大小滑块
 - (id)getSizeSlider:(PSSpecifier *)specifier {
     double v = [[self defaults] doubleForKey:@"statusBarIconSize"];
     if (v < 6) v = 14;
@@ -271,7 +259,6 @@
     notify_post(kDarwinNotification);
 }
 
-// 水平位置滑块
 - (id)getPosSlider:(PSSpecifier *)specifier {
     id v = [[self defaults] objectForKey:@"statusBarIconPos"];
     return v ?: @0.05;
@@ -283,7 +270,6 @@
     notify_post(kDarwinNotification);
 }
 
-// 垂直位置滑块
 - (id)getYSlider:(PSSpecifier *)specifier {
     id v = [[self defaults] objectForKey:@"statusBarIconY"];
     return v ?: @8;
