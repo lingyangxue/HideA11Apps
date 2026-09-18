@@ -8,7 +8,6 @@
 @property (nonatomic, strong) UIView *container;
 @property (nonatomic, strong) NSMutableArray *iconViews;
 @property (nonatomic, strong) NSMutableArray *visibleBundleIDs;
-@property (nonatomic, strong) NSTimer *pollTimer;
 @end
 
 @implementation HAAStatusBarIconManager
@@ -30,15 +29,19 @@
         notify_register_dispatch(kDarwinNotification, &token, dispatch_get_main_queue(), ^(int t) {
             [weakSelf refresh];
         });
+        // 监听 App 激活/退出通知
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(appActive:)
+                                                     name:@"SBApplicationDidBecomeActiveNotification"
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(appActive:)
+                                                     name:@"UIApplicationDidBecomeActiveNotification"
+                                                   object:nil];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
             [weakSelf refresh];
         });
-        self.pollTimer = [NSTimer scheduledTimerWithTimeInterval:1.5
-                                                          target:self
-                                                        selector:@selector(scanApps)
-                                                        userInfo:nil
-                                                         repeats:YES];
     }
     return self;
 }
@@ -84,51 +87,27 @@
     return nil;
 }
 
-- (void)scanApps {
+// 监听 App 激活通知
+- (void)appActive:(NSNotification *)note {
     if (![self isEnabled]) return;
-
-    Class appCtrlClass = NSClassFromString(@"SBApplicationController");
-    if (!appCtrlClass) return;
-
-    id shared = nil;
-    if ([appCtrlClass respondsToSelector:@selector(sharedInstance)]) {
-        shared = [appCtrlClass performSelector:@selector(sharedInstance)];
+    NSString *bid = nil;
+    NSDictionary *info = note.userInfo;
+    if ([info isKindOfClass:[NSDictionary class]]) {
+        bid = info[@"bundleID"];
     }
-    if (!shared) return;
-
-    NSArray *apps = nil;
-    if ([shared respondsToSelector:@selector(allApplications)]) {
-        apps = [shared performSelector:@selector(allApplications)];
-    }
-    if (!apps) return;
-
-    NSMutableArray *running = [NSMutableArray array];
-    for (id app in apps) {
-        NSString *bid = nil;
-        if ([app respondsToSelector:@selector(bundleIdentifier)]) {
-            bid = [app performSelector:@selector(bundleIdentifier)];
+    if (!bid) {
+        id obj = note.object;
+        if (obj && [obj respondsToSelector:@selector(bundleIdentifier)]) {
+            bid = [obj performSelector:@selector(bundleIdentifier)];
         }
-        if (!bid || bid.length == 0) continue;
-        if ([bid hasPrefix:@"com.apple."]) continue;
-
-        BOOL isRunning = NO;
-        if ([app respondsToSelector:@selector(isRunning)]) {
-            isRunning = [app performSelector:@selector(isRunning)];
-        }
-        if (!isRunning) continue;
-        [running addObject:bid];
     }
+    if (!bid || bid.length == 0) return;
+    if ([bid hasPrefix:@"com.apple."]) return;
 
-    NSMutableArray *newList = [NSMutableArray array];
-    for (NSString *bid in running) {
-        if (![newList containsObject:bid]) [newList addObject:bid];
-    }
-    while (newList.count > 6) [newList removeLastObject];
-
-    if (![newList isEqualToArray:self.visibleBundleIDs]) {
-        [self.visibleBundleIDs setArray:newList];
-        [self refresh];
-    }
+    [self.visibleBundleIDs removeObject:bid];
+    [self.visibleBundleIDs insertObject:bid atIndex:0];
+    while (self.visibleBundleIDs.count > 6) [self.visibleBundleIDs removeLastObject];
+    [self refresh];
 }
 
 - (void)noteAppBecameActive:(NSString *)bundleID {
