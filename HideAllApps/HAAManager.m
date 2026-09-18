@@ -89,13 +89,13 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     CGSize size = gr.view.bounds.size;
 
     if (gr.state == UIGestureRecognizerStateEnded) {
-        if (startLoc.x > m.zoneWidth) return;         // 左边界宽度可调
+        if (startLoc.x > m.zoneWidth) return;
         if (t.y < 30) return;
         if (fabs(t.y) < fabs(t.x)) return;
 
         CGFloat yRatio = startLoc.y / size.height;
-        if (yRatio < m.zoneTopRatio) return;          // 顶部位置可调
-        if (yRatio > m.zoneBottomRatio) return;       // 底部位置可调
+        if (yRatio < m.zoneTopRatio) return;
+        if (yRatio > m.zoneBottomRatio) return;
 
         [m showAllNow];
     }
