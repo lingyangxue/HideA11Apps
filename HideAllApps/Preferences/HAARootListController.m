@@ -19,38 +19,26 @@
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"重启桌面"
                                                                    message:@"确定要重启 SpringBoard 吗？"
                                                             preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"取消"
-                                              style:UIAlertActionStyleCancel
-                                            handler:^(UIAlertAction *a) {
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(UIAlertAction *a) {
         [self.navigationController popViewControllerAnimated:YES];
     }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"重启"
-                                              style:UIAlertActionStyleDestructive
-                                            handler:^(UIAlertAction *a) {
+    [alert addAction:[UIAlertAction actionWithTitle:@"重启" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) {
         [self doRespring];
     }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)doRespring {
-    NSLog(@"[HideAllApps] doRespring called");
-
-    // 方式 1：发通知让 SpringBoard 自己重启（最可靠）
     notify_post("com.yourname.hideallapps/respring");
-
-    // 方式 2：FBSystemService exitImmediately
     Class sbcClass = NSClassFromString(@"FBSystemService");
     if (sbcClass) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         id shared = nil;
-        if ([sbcClass respondsToSelector:@selector(sharedInstance)]) {
-            shared = [sbcClass performSelector:@selector(sharedInstance)];
-        }
+        if ([sbcClass respondsToSelector:@selector(sharedInstance)]) shared = [sbcClass performSelector:@selector(sharedInstance)];
         if (shared && [shared respondsToSelector:@selector(exitImmediately)]) {
             [shared performSelector:@selector(exitImmediately)];
 #pragma clang diagnostic pop
@@ -58,8 +46,6 @@
         }
 #pragma clang diagnostic pop
     }
-
-    // 方式 3：直接调用 exit
     void (*exitFunc)(int) = (void (*)(int))dlsym(RTLD_DEFAULT, "exit");
     if (exitFunc) exitFunc(0);
 }
@@ -88,17 +74,19 @@
         [hideAll setProperty:@NO forKey:@"default"];
         [specs addObject:hideAll];
 
-        PSSpecifier *group2 = [PSSpecifier groupSpecifierWithName:@"隐藏手势（只能选一个）"];
-        [group2 setProperty:@"打开其中一个开关后，另一个会自动关闭" forKey:@"footerText"];
+        PSSpecifier *group2 = [PSSpecifier groupSpecifierWithName:@"隐藏手势（独立开关，可同时开）"];
+        [group2 setProperty:@"每个开关独立，可以同时打开或都关闭" forKey:@"footerText"];
         [specs addObject:group2];
 
-        NSArray *names = @[@"状态栏单击", @"状态栏双击"];
-        NSArray *idxes = @[@4, @5];
-        for (NSInteger i = 0; i < names.count; i++) {
-            PSSpecifier *sp = [PSSpecifier preferenceSpecifierNamed:names[i] target:self set:@selector(setGestureValue:specifier:) get:@selector(gestureValue:) detail:nil cell:PSSwitchCell edit:nil];
-            [sp setProperty:idxes[i] forKey:@"gestureIndex"];
-            [specs addObject:sp];
-        }
+        PSSpecifier *sbSingle = [PSSpecifier preferenceSpecifierNamed:@"状态栏单击" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [sbSingle setProperty:@"statusBarSingleTapEnabled" forKey:@"key"];
+        [sbSingle setProperty:@NO forKey:@"default"];
+        [specs addObject:sbSingle];
+
+        PSSpecifier *sbDouble = [PSSpecifier preferenceSpecifierNamed:@"状态栏双击" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
+        [sbDouble setProperty:@"statusBarDoubleTapEnabled" forKey:@"key"];
+        [sbDouble setProperty:@NO forKey:@"default"];
+        [specs addObject:sbDouble];
 
         PSSpecifier *group3 = [PSSpecifier groupSpecifierWithName:@"摇一摇（只隐藏，独立开关）"];
         [group3 setProperty:@"摇一摇手机只隐藏，恢复请用上面的状态栏双击手势" forKey:@"footerText"];
@@ -118,19 +106,36 @@
         [leftDown setProperty:@NO forKey:@"default"];
         [specs addObject:leftDown];
 
-        PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"左侧下滑触发区域"];
-        [groupZone setProperty:@"避开系统「左上角下拉通知中心」手势，建议选「左侧中段」或「左侧下半」" forKey:@"footerText"];
+        // 触发区域调节（滑块）
+        PSSpecifier *groupZone = [PSSpecifier groupSpecifierWithName:@"左侧下滑触发区域（拖动调节）"];
+        [groupZone setProperty:@"调整后打开下面的「显示调试边框」可以看到区域范围" forKey:@"footerText"];
         [specs addObject:groupZone];
 
-        NSArray *zoneNames = @[@"左侧上半", @"左侧中段", @"左侧下半", @"整个左侧"];
-        for (NSInteger i = 0; i < zoneNames.count; i++) {
-            PSSpecifier *sp = [PSSpecifier preferenceSpecifierNamed:zoneNames[i] target:self set:@selector(setZoneValue:specifier:) get:@selector(zoneValue:) detail:nil cell:PSSwitchCell edit:nil];
-            [sp setProperty:@(i) forKey:@"zoneIndex"];
-            [specs addObject:sp];
-        }
+        PSSpecifier *topSlider = [PSSpecifier preferenceSpecifierNamed:@"区域顶部位置" target:self set:@selector(setZoneTop:specifier:) get:@selector(getZoneTop:) detail:nil cell:PSSliderCell edit:nil];
+        [topSlider setProperty:@0.0 forKey:@"min"];
+        [topSlider setProperty:@1.0 forKey:@"max"];
+        [topSlider setProperty:@0.15 forKey:@"default"];
+        [specs addObject:topSlider];
 
+        PSSpecifier *bottomSlider = [PSSpecifier preferenceSpecifierNamed:@"区域底部位置" target:self set:@selector(setZoneBottom:specifier:) get:@selector(getZoneBottom:) detail:nil cell:PSSliderCell edit:nil];
+        [bottomSlider setProperty:@0.0 forKey:@"min"];
+        [bottomSlider setProperty:@1.0 forKey:@"max"];
+        [bottomSlider setProperty:@0.85 forKey:@"default"];
+        [specs addObject:bottomSlider];
+
+        PSSpecifier *widthSlider = [PSSpecifier preferenceSpecifierNamed:@"左边界宽度" target:self set:@selector(setZoneWidth:specifier:) get:@selector(getZoneWidth:) detail:nil cell:PSSliderCell edit:nil];
+        [widthSlider setProperty:@50  forKey:@"min"];
+        [widthSlider setProperty:@300 forKey:@"max"];
+        [widthSlider setProperty:@150 forKey:@"default"];
+        [specs addObject:widthSlider];
+
+        PSSpecifier *debugBorder = [PSSpecifier preferenceSpecifierNamed:@"显示调试边框（3 秒）" target:self set:@selector(setDebugBorder:specifier:) get:@selector(getDebugBorder:) detail:nil cell:PSSwitchCell edit:nil];
+        [debugBorder setProperty:@NO forKey:@"default"];
+        [specs addObject:debugBorder];
+
+        // 状态栏图标
         PSSpecifier *groupSB = [PSSpecifier groupSpecifierWithName:@"状态栏显示 App 图标"];
-        [groupSB setProperty:@"打开过的 App 图标会显示在状态栏，App 完全退出后消失" forKey:@"footerText"];
+        [groupSB setProperty:@"显示最近打开的最多 6 个 App 图标" forKey:@"footerText"];
         [specs addObject:groupSB];
 
         PSSpecifier *sbEnable = [PSSpecifier preferenceSpecifierNamed:@"启用状态栏图标" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
@@ -148,9 +153,15 @@
         [sizeSlider setProperty:@14 forKey:@"default"];
         [specs addObject:sizeSlider];
 
-        PSSpecifier *groupPos = [PSSpecifier groupSpecifierWithName:@"水平位置（已固定左侧）"];
-        [groupPos setProperty:@"图标显示在屏幕左侧 30pt 处，避开右侧信号区域" forKey:@"footerText"];
+        PSSpecifier *groupPos = [PSSpecifier groupSpecifierWithName:@"水平位置（拖动滑块）"];
+        [groupPos setProperty:@"最左 ← → 最右" forKey:@"footerText"];
         [specs addObject:groupPos];
+
+        PSSpecifier *posSlider = [PSSpecifier preferenceSpecifierNamed:@"水平" target:self set:@selector(setPosSlider:specifier:) get:@selector(getPosSlider:) detail:nil cell:PSSliderCell edit:nil];
+        [posSlider setProperty:@0.0 forKey:@"min"];
+        [posSlider setProperty:@1.0 forKey:@"max"];
+        [posSlider setProperty:@0.05 forKey:@"default"];
+        [specs addObject:posSlider];
 
         PSSpecifier *groupY = [PSSpecifier groupSpecifierWithName:@"垂直位置（拖动滑块）"];
         [groupY setProperty:@"0 = 最顶，24 = 往下。默认 8" forKey:@"footerText"];
@@ -196,74 +207,90 @@
     notify_post(kDarwinNotification);
 }
 
-- (id)gestureValue:(PSSpecifier *)specifier {
-    NSInteger idx = [[specifier propertyForKey:@"gestureIndex"] integerValue];
-    NSInteger cur = [[self defaults] integerForKey:@"gestureType"];
-    return @(idx == cur);
+// 顶部位置滑块
+- (id)getZoneTop:(PSSpecifier *)specifier {
+    id v = [[self defaults] objectForKey:@"zoneTopRatio"];
+    return v ?: @0.15;
 }
-
-- (void)setGestureValue:(id)value specifier:(PSSpecifier *)specifier {
-    NSInteger idx = [[specifier propertyForKey:@"gestureIndex"] integerValue];
+- (void)setZoneTop:(id)value specifier:(PSSpecifier *)specifier {
     NSUserDefaults *d = [self defaults];
-    if ([value boolValue]) {
-        [d setInteger:idx forKey:@"gestureType"];
-        [d synchronize];
-        notify_post(kDarwinNotification);
-    } else {
-        if ([[d objectForKey:@"gestureType"] integerValue] == idx) {
-            [d setInteger:0 forKey:@"gestureType"];
-            [d synchronize];
-            notify_post(kDarwinNotification);
-        }
-    }
-    [self reloadSpecifiers];
+    [d setDouble:[value doubleValue] forKey:@"zoneTopRatio"];
+    [d synchronize];
+    notify_post(kDarwinNotification);
 }
 
-- (id)zoneValue:(PSSpecifier *)specifier {
-    NSInteger idx = [[specifier propertyForKey:@"zoneIndex"] integerValue];
-    NSInteger cur = [[self defaults] integerForKey:@"leftDownZone"];
-    return @(idx == cur);
+// 底部位置滑块
+- (id)getZoneBottom:(PSSpecifier *)specifier {
+    id v = [[self defaults] objectForKey:@"zoneBottomRatio"];
+    return v ?: @0.85;
 }
-
-- (void)setZoneValue:(id)value specifier:(PSSpecifier *)specifier {
-    NSInteger idx = [[specifier propertyForKey:@"zoneIndex"] integerValue];
+- (void)setZoneBottom:(id)value specifier:(PSSpecifier *)specifier {
     NSUserDefaults *d = [self defaults];
-    if ([value boolValue]) {
-        [d setInteger:idx forKey:@"leftDownZone"];
-        [d synchronize];
-        notify_post(kDarwinNotification);
-    } else {
-        if ([[d objectForKey:@"leftDownZone"] integerValue] == idx) {
-            [d setInteger:0 forKey:@"leftDownZone"];
-            [d synchronize];
-            notify_post(kDarwinNotification);
-        }
-    }
-    [self reloadSpecifiers];
+    [d setDouble:[value doubleValue] forKey:@"zoneBottomRatio"];
+    [d synchronize];
+    notify_post(kDarwinNotification);
 }
 
+// 宽度滑块
+- (id)getZoneWidth:(PSSpecifier *)specifier {
+    id v = [[self defaults] objectForKey:@"zoneWidth"];
+    return v ?: @150;
+}
+- (void)setZoneWidth:(id)value specifier:(PSSpecifier *)specifier {
+    NSUserDefaults *d = [self defaults];
+    [d setDouble:[value doubleValue] forKey:@"zoneWidth"];
+    [d synchronize];
+    notify_post(kDarwinNotification);
+}
+
+// 调试边框开关
+- (id)getDebugBorder:(PSSpecifier *)specifier {
+    return @([[self defaults] boolForKey:@"debugBorderEnabled"]);
+}
+- (void)setDebugBorder:(id)value specifier:(PSSpecifier *)specifier {
+    BOOL on = [value boolValue];
+    NSUserDefaults *d = [self defaults];
+    [d setBool:on forKey:@"debugBorderEnabled"];
+    [d synchronize];
+    if (on) {
+        // 发通知让 SpringBoard 显示边框
+        notify_post("com.yourname.hideallapps/showBorder");
+    }
+}
+
+// 大小滑块
 - (id)getSizeSlider:(PSSpecifier *)specifier {
     double v = [[self defaults] doubleForKey:@"statusBarIconSize"];
     if (v < 6) v = 14;
     return @(v);
 }
 - (void)setSizeSlider:(id)value specifier:(PSSpecifier *)specifier {
-    double v = [value doubleValue];
     NSUserDefaults *d = [self defaults];
-    [d setDouble:v forKey:@"statusBarIconSize"];
+    [d setDouble:[value doubleValue] forKey:@"statusBarIconSize"];
     [d synchronize];
     notify_post(kDarwinNotification);
 }
 
+// 水平位置滑块
+- (id)getPosSlider:(PSSpecifier *)specifier {
+    id v = [[self defaults] objectForKey:@"statusBarIconPos"];
+    return v ?: @0.05;
+}
+- (void)setPosSlider:(id)value specifier:(PSSpecifier *)specifier {
+    NSUserDefaults *d = [self defaults];
+    [d setDouble:[value doubleValue] forKey:@"statusBarIconPos"];
+    [d synchronize];
+    notify_post(kDarwinNotification);
+}
+
+// 垂直位置滑块
 - (id)getYSlider:(PSSpecifier *)specifier {
     id v = [[self defaults] objectForKey:@"statusBarIconY"];
-    if (!v) return @8;
-    return v;
+    return v ?: @8;
 }
 - (void)setYSlider:(id)value specifier:(PSSpecifier *)specifier {
-    double v = [value doubleValue];
     NSUserDefaults *d = [self defaults];
-    [d setDouble:v forKey:@"statusBarIconY"];
+    [d setDouble:[value doubleValue] forKey:@"statusBarIconY"];
     [d synchronize];
     notify_post(kDarwinNotification);
 }
