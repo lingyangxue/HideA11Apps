@@ -148,11 +148,9 @@
     if (!shared && [appCtrlClass respondsToSelector:@selector(sharedInstanceIfExists)]) {
         shared = [appCtrlClass performSelector:@selector(sharedInstanceIfExists)];
     }
-    if (!shared) return running;
-
-    NSArray *apps = nil;
-    if ([shared respondsToSelector:@selector(allApplications)]) {
-        apps = [shared performSelector:@selector(allApplications)];
+    if (!apps && [shared respondsToSelector:NSSelectorFromString(@"applications")]) {
+        apps = [shared performSelector:NSSelectorFromString(@"applications")];
+    }
     }
     if (!apps(@" && [shared respondsToSelector:NSSelectorFromString(@"applications")]) {
         apps = [shared performSelector:NSSelectorFromString(@"applications")];
