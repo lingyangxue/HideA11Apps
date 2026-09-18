@@ -19,17 +19,11 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
-    UISwipeGestureRecognizer *up = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeUp:)];
-    up.direction = UISwipeGestureRecognizerDirectionUp;
-    [view addGestureRecognizer:up];
-
-    UISwipeGestureRecognizer *left = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeLeft:)];
-    left.direction = UISwipeGestureRecognizerDirectionLeft;
-    [view addGestureRecognizer:left];
-
-    UISwipeGestureRecognizer *right = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeRight:)];
-    right.direction = UISwipeGestureRecognizerDirectionRight;
-    [view addGestureRecognizer:right];
+    // 左侧向下滑 → 恢复显示
+    UISwipeGestureRecognizer *leftDown = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftDown:)];
+    leftDown.direction = UISwipeGestureRecognizerDirectionDown;
+    leftDown.numberOfTouchesRequired = 1;
+    [view addGestureRecognizer:leftDown];
 }
 
 - (void)setupStatusBarGestures:(UIView *)view {
@@ -63,22 +57,22 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     return m.enabled && m.gestureType == type;
 }
 
-- (void)handleSwipeUp:(UISwipeGestureRecognizer *)gr {
-    if ([self gestureMatches:HAAGestureTypeSwipeUp]) [self fireToggle];
+// 左侧向下滑 = 只恢复
+- (void)handleLeftDown:(UISwipeGestureRecognizer *)gr {
+    HAAManager *m = [HAAManager sharedManager];
+    if (!m.enabled) return;
+    // 必须从屏幕左侧 30pt 内开始滑
+    CGPoint loc = [gr locationInView:gr.view];
+    if (loc.x > 60) return;
+    [m showAllNow];
 }
-- (void)handleSwipeLeft:(UISwipeGestureRecognizer *)gr {
-    if ([self gestureMatches:HAAGestureTypeSwipeLeft]) [self fireToggle];
-}
-- (void)handleSwipeRight:(UISwipeGestureRecognizer *)gr {
-    if ([self gestureMatches:HAAGestureTypeSwipeRight]) [self fireToggle];
-}
+
 - (void)handleStatusBarSingleTap:(UITapGestureRecognizer *)gr {
     if ([self gestureMatches:HAAGestureTypeStatusBarSingleTap]) [self fireToggle];
 }
 
 - (void)handleStatusBarDoubleTap:(UITapGestureRecognizer *)gr {
-    if (![self gestureMatches:HAAGestureTypeStatusBarDoubleTap]) return;
-    [[HAAManager sharedManager] showAllNow];
+    if ([self gestureMatches:HAAGestureTypeStatusBarDoubleTap]) [self fireToggle];
 }
 
 - (void)handleShake {
