@@ -65,10 +65,9 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     }
 }
 
-// 左侧下滑 → 切换（隐藏 ↔ 恢复）
 - (void)handleLeftEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled || !m.leftDownEnabled) return;
+    if (!m.enabled || !m.activated || !m.leftDownEnabled) return;
     if (gr.state != UIGestureRecognizerStateEnded) return;
 
     CGPoint t = [gr translationInView:gr.view];
@@ -85,10 +84,9 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     [m toggleHidden];
 }
 
-// 右侧下滑 → 切换（隐藏 ↔ 恢复）
 - (void)handleRightEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled || !m.rightDownEnabled) return;
+    if (!m.enabled || !m.activated || !m.rightDownEnabled) return;
     if (gr.state != UIGestureRecognizerStateEnded) return;
 
     CGPoint t = [gr translationInView:gr.view];
@@ -105,10 +103,9 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     [m toggleHidden];
 }
 
-// 普通 Pan 兜底
 - (void)handlePan:(UIPanGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled) return;
+    if (!m.enabled || !m.activated) return;
     if (gr.state != UIGestureRecognizerStateEnded) return;
 
     CGPoint startLoc = [gr locationInView:gr.view];
@@ -122,13 +119,11 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
     if (yRatio < m.zoneTopRatio) return;
     if (yRatio > m.zoneBottomRatio) return;
 
-    // 起点在左侧
     if (startLoc.x <= m.zoneWidth) {
         if (!m.leftDownEnabled) return;
         [m toggleHidden];
         return;
     }
-    // 起点在右侧
     if (startLoc.x >= size.width - m.zoneWidth) {
         if (!m.rightDownEnabled) return;
         [m toggleHidden];
@@ -138,19 +133,19 @@ static const void *kHAAStatusBarInstalledKey = &kHAAStatusBarInstalledKey;
 
 - (void)handleStatusBarSingleTap:(UITapGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled || !m.statusBarSingleTapEnabled) return;
+    if (!m.enabled || !m.activated || !m.statusBarSingleTapEnabled) return;
     [self fireToggle];
 }
 
 - (void)handleStatusBarDoubleTap:(UITapGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled || !m.statusBarDoubleTapEnabled) return;
+    if (!m.enabled || !m.activated || !m.statusBarDoubleTapEnabled) return;
     [self fireToggle];
 }
 
 - (void)handleShake {
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled || !m.shakeEnabled) return;
+    if (!m.enabled || !m.activated || !m.shakeEnabled) return;
     [m hideAllNow];
 }
 
