@@ -55,20 +55,20 @@
         [topSlider setProperty:@0.15 forKey:@"default"];
         [specs addObject:topSlider];
 
-        PSSpecifier *bottomSlider =Cell [PSS editpecifier preferenceSpecifierNamed:@"区域底部:nil位置" target:self set:@selector(setZoneBottom:spec];
-ifier:) get:@selector(getZoneBottom       :) detail:nil cell:PSSliderCell edit:nil];
+        PSSpecifier *bottomSlider = [PSSpecifier preferenceSpecifierNamed:@"区域底部位置" target:self set:@selector(setZoneBottom:specifier:) get:@selector(getZoneBottom:) detail:nil cell:PSSliderCell edit:nil];
         [bottomSlider setProperty:@0.0 forKey:@"min"];
         [bottomSlider setProperty:@1.0 forKey:@"max"];
         [bottomSlider setProperty:@0.85 forKey:@"default"];
         [specs addObject:bottomSlider];
 
         PSSpecifier *widthSlider = [PSSpecifier preferenceSpecifierNamed:@"左右边界宽度" target:self set:@selector(setZoneWidth:specifier:) get:@selector(getZoneWidth:) detail:nil cell:PSSliderCell edit:nil];
-        [widthSlider setProperty:@50  forKey:@"min"];
+        [widthSlider setProperty:@50 forKey:@"min"];
         [widthSlider setProperty:@300 forKey:@"max"];
         [widthSlider setProperty:@150 forKey:@"default"];
         [specs addObject:widthSlider];
 
-        PSSpecifier *debugBorder = [PSSpecifier preferenceSpecifierNamed:@"显示调试边框" target:self set:@selector(setDebugBorder:specifier:) get:@selector(getDebugBorder:) detail:nil cell:PSSwitch [debugBorder setProperty:@NO forKey:@"default"];
+        PSSpecifier *debugBorder = [PSSpecifier preferenceSpecifierNamed:@"显示调试边框" target:self set:@selector(setDebugBorder:specifier:) get:@selector(getDebugBorder:) detail:nil cell:PSSwitchCell edit:nil];
+        [debugBorder setProperty:@NO forKey:@"default"];
         [specs addObject:debugBorder];
 
         PSSpecifier *groupA = [PSSpecifier groupSpecifierWithName:@"单独选择要隐藏的 App"];
