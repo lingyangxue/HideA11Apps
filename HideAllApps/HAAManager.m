@@ -124,26 +124,20 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     }
 }
 
-#pragma mark - 状态栏隐藏
-
 - (void)applyStatusBarHidden:(BOOL)hidden {
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         NSString *cls = NSStringFromClass(w.class);
-        if ([cls containsString:@"StatusBar"]) {
-            w.alpha = hidden ? 0.0 : 1.0;
-            w.hidden = hidden ? YES : NO;
-            // 同时处理里面的 view
-            for (UIView *sub in w.subviews) {
-                NSString *subCls = NSStringFromClass(sub.class);
-                if ([subCls containsString:@"StatusBar"] || [subCls containsString:@"StatusBarForeground"]) {
-                    sub.alpha = hidden ? 0.0 : 1.0;
-                }
+        if (![cls containsString:@"StatusBar"]) continue;
+        w.alpha = hidden ? 0.0 : 1.0;
+        w.hidden = hidden ? YES : NO;
+        for (UIView *sub in w.subviews) {
+            NSString *subCls = NSStringFromClass(sub.class);
+            if ([subCls containsString:@"StatusBar"]) {
+                sub.alpha = hidden ? 0.0 : 1.0;
             }
         }
     }
 }
-
-#pragma mark - 图标隐藏
 
 - (void)applyHiddenStateToIconView:(id)iconView {
     if (!self.enabled) {
@@ -184,7 +178,6 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     for (UIWindow *window in [UIApplication sharedApplication].windows) {
         [self _walkView:window depth:0];
     }
-    // 保持状态栏状态
     if (self.hideAll && self.enabled) {
         [self applyStatusBarHidden:YES];
     }
@@ -200,8 +193,6 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     if (isIconClass) [self applyHiddenStateToIconView:view];
     for (UIView *sub in view.subviews) [self _walkView:sub depth:depth + 1];
 }
-
-#pragma mark - 调试边框
 
 - (void)showDebugBorder {
     if (!self.enabled) return;
@@ -231,12 +222,12 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     leftBorder.backgroundColor = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:0.25];
     leftBorder.layer.borderColor = [UIColor redColor].CGColor;
     leftBorder.layer.borderWidth = 3.0;
-    leftBorder.userInteractionEnabled = NOView;
-    leftBorder.frame = CGRectMake(0, y *, self.zoneWidth, h);
-    [hostv add inSubview:leftBorder];
+    leftBorder.userInteractionEnabled = NO;
+    leftBorder.frame = CGRectMake(0, y, self.zoneWidth, h);
+    [host addSubview:leftBorder];
 
-    UIView *rightBorder = [[UI wView alloc] init];
-    rightBorder.sub.tag = 99991;
+    UIView *rightBorder = [[UIView alloc] init];
+    rightBorder.tag = 99991;
     rightBorder.backgroundColor = [UIColor colorWithRed:0.0 green:0.0 blue:1.0 alpha:0.25];
     rightBorder.layer.borderColor = [UIColor blueColor].CGColor;
     rightBorder.layer.borderWidth = 3.0;
@@ -250,7 +241,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 
 - (void)hideDebugBorder {
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
-        for (UIviews) {
+        for (UIView *v in w.subviews) {
             if (v.tag == 99991) [v removeFromSuperview];
         }
     }
