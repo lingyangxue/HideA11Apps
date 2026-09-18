@@ -5,6 +5,9 @@
 NSString * const kHAASuiteName = @"com.yourname.hideallapps";
 NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps/prefsChanged";
 
+// ⚠️ 修改这里即可改变激活密码
+NSString * const kHAActivationPassword = @"HideAllApps2024";
+
 @interface HAAManager ()
 @property (nonatomic, assign) int notifyToken;
 @end
@@ -40,6 +43,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 
 - (void)reload {
     NSUserDefaults *d = [self defaults];
+    self.activated                  = [d boolForKey:@"activated"];
     self.enabled                    = [d boolForKey:@"enabled"];
     self.statusBarSingleTapEnabled  = [d boolForKey:@"statusBarSingleTapEnabled"];
     self.statusBarDoubleTapEnabled  = [d boolForKey:@"statusBarDoubleTapEnabled"];
@@ -60,12 +64,17 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     NSArray *arr                    = [d arrayForKey:@"hiddenBundleIDs"] ?: @[];
     self.hiddenBundleIDs            = [NSSet setWithArray:arr];
 
-    if (self.hideAll) [self startRefreshTimer];
+    if (self.hideAll && self.activated) [self startRefreshTimer];
     else [self stopRefreshTimer];
 }
 
+// 关键：所有功能都要求 activated == YES
+- (BOOL)isActive {
+    return self.enabled && self.activated;
+}
+
 - (BOOL)shouldHideBundleID:(NSString *)bundleID {
-    if (!self.enabled) return NO;
+    if (![self isActive]) return NO;
     if (!bundleID || bundleID.length == 0) return NO;
     if ([bundleID isEqualToString:@"com.apple.springboard"]) return NO;
     if (self.hideAll) return YES;
@@ -73,12 +82,13 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 }
 
 - (void)toggleHidden {
+    if (![self isActive]) return;
     if (self.hideAll) [self showAllNow];
     else [self hideAllNow];
 }
 
 - (void)hideAllNow {
-    if (!self.enabled) return;
+    if (![self isActive]) return;
     if (self.hideAll) { [self refreshAllIconViews]; return; }
     self.hideAll = YES;
     NSUserDefaults *d = [self defaults];
@@ -90,7 +100,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 }
 
 - (void)showAllNow {
-    if (!self.enabled) return;
+    if (![self isActive]) return;
     if (!self.hideAll) { [self refreshAllIconViews]; return; }
     self.hideAll = NO;
     NSUserDefaults *d = [self defaults];
@@ -118,6 +128,15 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 }
 
 - (void)applyHiddenStateToIconView:(id)iconView {
+    if (![self isActive]) {
+        // 未激活：把所有图标恢复显示
+        if ([iconView isKindOfClass:[UIView class]]) {
+            UIView *v = (UIView *)iconView;
+            v.alpha = 1.0;
+            v.userInteractionEnabled = YES;
+        }
+        return;
+    }
     if (!iconView) return;
     if (![iconView isKindOfClass:[UIView class]]) return;
     UIView *view = (UIView *)iconView;
@@ -137,7 +156,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
                 bundleID = [app performSelector:@selector(bundleIdentifier)];
             }
         }
-        if (!bundleID && self.enabled && self.hideAll) hide = YES;
+        if (!bundleID && self.hideAll) hide = YES;
         else if (bundleID) hide = [self shouldHideBundleID:bundleID];
     }
     view.alpha = hide ? 0.0 : 1.0;
@@ -164,6 +183,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 #pragma mark - Debug Border
 
 - (void)showDebugBorder {
+    if (![self isActive]) return;
     UIView *host = nil;
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         NSString *cls = NSStringFromClass(w.class);
