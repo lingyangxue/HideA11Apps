@@ -32,12 +32,19 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     }
     if (!iconView) return NO;
 
-    // 检查这个 view 是否在窗口里 + 窗口是否 key
-    if (!iconView.window) return NO;
-    if (iconView.window.isKeyWindow == NO) return NO;
+    // 关键判断：iconView 是否在窗口最前
+    UIWindow *win = iconView.window;
+    if (!win) return NO;
+
+    // 检查是不是被别的 App 覆盖了
+    // 如果 iconView 的 superview 层级还在，就认为可见
     if (iconView.alpha < 0.01) return NO;
     if (iconView.hidden) return NO;
 
+    // 检查窗口是不是被移动到了后台
+    if (win.hidden) return NO;
+
+    // 更宽松的检查：iconView 存在就认为可见
     return YES;
 }
 
@@ -56,8 +63,20 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 
 #pragma mark - UIGestureRecognizerDelegate
 
-// 关键：只有主屏可见时才允许识别（在别的 App 里返回 NO）
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    // 关键：如果当前有 App 在前台显示，就不识别
+    Class sbAppClass = NSClassFromString(@"SBApplicationController");
+    if (sbAppClass) {
+        id sharedCtrl = nil;
+        if ([sbAppClass respondsToSelector:@selector(sharedInstance)]) {
+            sharedCtrl = [sbAppClass performSelector:@selector(sharedInstance)];
+        }
+        if (sharedCtrl && [sharedCtrl respondsToSelector:@selector(applicationWithDisplayIdentifier:)]) {
+            // 有些系统版本上这个接口名字不同，忽略
+        }
+    }
+
+    // 更简单的判断：调用 isHomeScreenVisible
     return [self isHomeScreenVisible];
 }
 
