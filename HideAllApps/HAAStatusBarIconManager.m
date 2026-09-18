@@ -6,6 +6,7 @@
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
 
 @interface HAAStatusBarIconManager ()
+@property (nonatomic, strong) UIWindow *overlayWindow;
 @property (nonatomic, strong) UIView *container;
 @property (nonatomic, strong) NSMutableArray *iconViews;
 @property (nonatomic, strong) NSMutableArray *visibleBundleIDs;
@@ -64,24 +65,47 @@
     return [v doubleValue];
 }
 
-// 找 SpringBoard 主屏 view 作为宿主
-- (UIView *)hostView {
-    Class iconCtrl = NSClassFromString(@"SBIconController");
-    if (iconCtrl) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-        id shared = nil;
-        if ([iconCtrl respondsToSelector:@selector(sharedInstance)]) {
-            shared = [iconCtrl performSelector:@selector(sharedInstance)];
+#pragma mark - Overlay Window
+
+- (UIWindowScene *)activeScene {
+    for (UIScene *s in [UIApplication sharedApplication].connectedScenes) {
+        if ([s isKindOfClass:[UIWindowScene class]] &&
+            s.activationState == UISceneActivationStateForegroundActive) {
+            return (UIWindowScene *)s;
         }
-        if (shared && [shared respondsToSelector:@selector(view)]) {
-            UIView *v = [shared performSelector:@selector(view)];
-            if (v && v.window) return v;
-        }
-#pragma clang diagnostic pop
     }
-    return [UIApplication sharedApplication].keyWindow;
+    for (UIScene *s in [UIApplication sharedApplication].connectedScenes) {
+        if ([s isKindOfClass:[UIWindowScene class]]) {
+            return (UIWindowScene *)s;
+        }
+    }
+    return nil;
 }
+
+- (void)ensureOverlayWindow {
+    if (self.overlayWindow) return;
+
+    UIWindowScene *scene = [self activeScene];
+    if (!scene) return;
+
+    self.overlayWindow = [[UIWindow alloc] initWithWindowScene:scene];
+    self.overlayWindow.frame = scene.coordinateSpace.bounds;
+    self.overlayWindow.windowLevel = 1000000;  // 比状态栏还高
+    self.overlayWindow.backgroundColor = [UIColor clearColor];
+    self.overlayWindow.userInteractionEnabled = NO;
+    self.overlayWindow.hidden = NO;
+
+    UIViewController *vc = [[UIViewController alloc] init];
+    vc.view.backgroundColor = [UIColor clearColor];
+    self.overlayWindow.rootViewController = vc;
+
+    self.container = [[UIView alloc] init];
+    self.container.backgroundColor = [UIColor clearColor];
+    self.container.userInteractionEnabled = NO;
+    [vc.view addSubview:self.container];
+}
+
+#pragma mark - Polling
 
 - (void)updatePollingState {
     if ([self isEnabled]) {
@@ -172,6 +196,8 @@
     }
 }
 
+#pragma mark - Icon Rendering
+
 - (UIImage *)iconForBundleID:(NSString *)bundleID {
     if (!bundleID) return nil;
     SEL sel = NSSelectorFromString(@"_applicationIconImageForBundleIdentifier:format:scale:");
@@ -201,20 +227,10 @@
         return;
     }
 
-    UIView *host = [self hostView];
-    if (!host) return;
+    [self ensureOverlayWindow];
+    if (!self.container || !self.overlayWindow) return;
 
-    if (self.container && self.container.superview != host) {
-        [self.container removeFromSuperview];
-        self.container = nil;
-    }
-    if (!self.container) {
-        self.container = [[UIView alloc] init];
-        self.container.backgroundColor = [UIColor clearColor];
-        self.container.userInteractionEnabled = NO;
-        [host addSubview:self.container];
-    }
-    [host bringSubviewToFront:self.container];
+    [self.overlayWindow setHidden:NO];
 
     for (UIView *v in self.iconViews) [v removeFromSuperview];
     [self.iconViews removeAllObjects];
@@ -241,14 +257,14 @@
         x += size + spacing;
     }
 
-    CGFloat hostW = host.bounds.size.width;
+    CGFloat winW = self.overlayWindow.bounds.size.width;
     CGFloat totalW = MAX(x - spacing, 1);
     CGFloat ratio = [self positionRatio];
-    CGFloat startX = (hostW - totalW) * ratio;
+    CGFloat startX = (winW - totalW) * ratio;
     if (startX < 4) startX = 4;
-    if (startX + totalW > hostW - 4) startX = hostW - totalW - 4;
+    if (startX + totalW > winW - 4) startX = winW - totalW - 4;
 
-    // 贴到顶部（状态栏那一行，y = 8）
+    // 状态栏那一行：y = 8
     self.container.frame = CGRectMake(startX, 8, totalW, size);
 }
 
@@ -257,6 +273,8 @@
     [self.iconViews removeAllObjects];
     [self.container removeFromSuperview];
     self.container = nil;
+    [self.overlayWindow setHidden:YES];
+    self.overlayWindow = nil;
     [self.visibleBundleIDs removeAllObjects];
 }
 
