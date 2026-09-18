@@ -1,27 +1,24 @@
 #import <Foundation/Foundation.h>
 
-typedef NS_ENUM(NSInteger, HAAGestureType) {
-    HAAGestureTypeNone = 0,
-    HAAGestureTypeSwipeUp,
-    HAAGestureTypeSwipeLeft,
-    HAAGestureTypeSwipeRight,
-    HAAGestureTypeStatusBarSingleTap,
-    HAAGestureTypeStatusBarDoubleTap,
-};
-
 extern NSString * const kHAASuiteName;
 extern NSString * const kHAAPrefsChangedDarwinNotification;
 
 @interface HAAManager : NSObject
 @property (nonatomic, assign) BOOL enabled;
-@property (nonatomic, assign) NSInteger gestureType;
+@property (nonatomic, assign) BOOL statusBarSingleTapEnabled;
+@property (nonatomic, assign) BOOL statusBarDoubleTapEnabled;
 @property (nonatomic, assign) BOOL shakeEnabled;
 @property (nonatomic, assign) BOOL leftDownEnabled;
-@property (nonatomic, assign) NSInteger leftDownZone;  // 0=上半 1=中段 2=下半 3=整个
+// 左侧下滑区域（0.0 ~ 1.0 比例）
+@property (nonatomic, assign) CGFloat zoneTopRatio;     // 顶部（默认 0.15）
+@property (nonatomic, assign) CGFloat zoneBottomRatio;  // 底部（默认 0.85）
+@property (nonatomic, assign) CGFloat zoneWidth;        // 左边界宽度 pt（默认 150）
+@property (nonatomic, assign) BOOL debugBorderEnabled;  // 显示调试边框
+
 @property (nonatomic, assign) BOOL hideAll;
 @property (nonatomic, strong) NSSet *hiddenBundleIDs;
 @property (nonatomic, strong) NSTimer *refreshTimer;
-+ (instancetype)sharedManager;
++ (ourinstancetype)sharedManager;
 - (void)reload;
 - (BOOL)shouldHideBundleID:(NSString *)bundleID;
 - (void)toggleHidden;
@@ -31,4 +28,5 @@ extern NSString * const kHAAPrefsChangedDarwinNotification;
 - (void)applyHiddenStateToIconView:(id)iconView;
 - (void)startRefreshTimer;
 - (void)stopRefreshTimer;
+- (void)showDebugBorder;
 @end
