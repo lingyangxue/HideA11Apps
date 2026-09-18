@@ -2,6 +2,7 @@
 #import "HAAAppPickerController.h"
 #import <notify.h>
 #import <spawn.h>
+#import <dlfcn.h>
 
 #define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
@@ -37,6 +38,11 @@
 
 - (void)doRespring {
     NSLog(@"[HideAllApps] doRespring called");
+
+    // 方式 1：发通知让 SpringBoard 自己重启（最可靠）
+    notify_post("com.yourname.hideallapps/respring");
+
+    // 方式 2：FBSystemService exitImmediately
     Class sbcClass = NSClassFromString(@"FBSystemService");
     if (sbcClass) {
 #pragma clang diagnostic push
@@ -52,23 +58,10 @@
         }
 #pragma clang diagnostic pop
     }
-    pid_t pid;
-    const char *killPaths[] = {
-        "/var/jb/usr/bin/sbreload",
-        "/var/jb/usr/bin/respring",
-        "/var/jb/usr/bin/killall",
-        "/usr/bin/sbreload",
-        "/usr/bin/respring",
-        "/usr/bin/killall",
-        NULL
-    };
-    for (int i = 0; killPaths[i] != NULL; i++) {
-        const char *argsA[] = { killPaths[i], NULL };
-        posix_spawn(&pid, killPaths[i], NULL, NULL, (char * const *)argsA, NULL);
-        const char *argsB[] = { killPaths[i], "-9", "SpringBoard", NULL };
-        posix_spawn(&pid, killPaths[i], NULL, NULL, (char * const *)argsB, NULL);
-    }
-    kill(1, SIGKILL);
+
+    // 方式 3：直接调用 exit
+    void (*exitFunc)(int) = (void (*)(int))dlsym(RTLD_DEFAULT, "exit");
+    if (exitFunc) exitFunc(0);
 }
 
 @end
@@ -155,15 +148,9 @@
         [sizeSlider setProperty:@14 forKey:@"default"];
         [specs addObject:sizeSlider];
 
-        PSSpecifier *groupPos = [PSSpecifier groupSpecifierWithName:@"水平位置（拖动滑块）"];
-        [groupPos setProperty:@"最左 ← → 最右" forKey:@"footerText"];
+        PSSpecifier *groupPos = [PSSpecifier groupSpecifierWithName:@"水平位置（已固定左侧）"];
+        [groupPos setProperty:@"图标显示在屏幕左侧 30pt 处，避开右侧信号区域" forKey:@"footerText"];
         [specs addObject:groupPos];
-
-        PSSpecifier *posSlider = [PSSpecifier preferenceSpecifierNamed:@"水平" target:self set:@selector(setPosSlider:specifier:) get:@selector(getPosSlider:) detail:nil cell:PSSliderCell edit:nil];
-        [posSlider setProperty:@0.0 forKey:@"min"];
-        [posSlider setProperty:@1.0 forKey:@"max"];
-        [posSlider setProperty:@0.5 forKey:@"default"];
-        [specs addObject:posSlider];
 
         PSSpecifier *groupY = [PSSpecifier groupSpecifierWithName:@"垂直位置（拖动滑块）"];
         [groupY setProperty:@"0 = 最顶，24 = 往下。默认 8" forKey:@"footerText"];
@@ -264,19 +251,6 @@
     double v = [value doubleValue];
     NSUserDefaults *d = [self defaults];
     [d setDouble:v forKey:@"statusBarIconSize"];
-    [d synchronize];
-    notify_post(kDarwinNotification);
-}
-
-- (id)getPosSlider:(PSSpecifier *)specifier {
-    id v = [[self defaults] objectForKey:@"statusBarIconPos"];
-    if (!v) return @0.5;
-    return v;
-}
-- (void)setPosSlider:(id)value specifier:(PSSpecifier *)specifier {
-    double v = [value doubleValue];
-    NSUserDefaults *d = [self defaults];
-    [d setDouble:v forKey:@"statusBarIconPos"];
     [d synchronize];
     notify_post(kDarwinNotification);
 }
