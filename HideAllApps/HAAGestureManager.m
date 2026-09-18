@@ -5,7 +5,6 @@
 static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 
 @interface HAAGestureManager () <UIGestureRecognizerDelegate>
-@property (nonatomic, assign) BOOL homeScreenActive;
 @end
 
 @implementation HAAGestureManager
@@ -15,18 +14,6 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{ shared = [[HAAGestureManager alloc] init]; });
     return shared;
-}
-
-- (instancetype)init {
-    self = [super init];
-    if (self) {
-        _homeScreenActive = YES;  // 默认在桌面
-    }
-    return self;
-}
-
-- (void)setHomeScreenActive:(BOOL)active {
-    _homeScreenActive = active;
 }
 
 - (void)setupGesturesOnView:(UIView *)view {
@@ -44,9 +31,19 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
 
 #pragma mark - UIGestureRecognizerDelegate
 
-- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
-    // 只有在桌面才识别手势
-    return self.homeScreenActive;
+// 关键：只接收屏幕左右边缘的触摸，其他区域（包括状态栏中央）都不接收
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+       shouldReceiveTouch:(UITouch *)touch {
+    UIView *view = gestureRecognizer.view;
+    if (!view) return NO;
+
+    CGPoint point = [touch locationInView:view];
+    CGSize size = view.bounds.size;
+
+    // 左右边缘 50pt 内才接收
+    if (point.x <= 50) return YES;
+    if (point.x >= size.width - 50) return YES;
+    return NO;
 }
 
 - (void)installGesturesIntoSpringBoard {
@@ -84,12 +81,12 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     if (fabs(t.y) < fabs(t.x)) return;
     if (![self inYZone:startLoc.y height:size.height]) return;
 
-    if (startLoc.x <= 30) {
+    if (startLoc.x <= 50) {
         if (!m.leftDownEnabled) return;
         [m toggleHidden];
         return;
     }
-    if (startLoc.x >= size.width - 30) {
+    if (startLoc.x >= size.width - 50) {
         if (!m.rightDownEnabled) return;
         [m toggleHidden];
         return;
