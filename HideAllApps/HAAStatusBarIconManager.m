@@ -1,6 +1,5 @@
 #import "HAAStatusBarIconManager.h"
 #import <notify.h>
-#import <objc/runtime.h>
 
 #define kSuiteName @"com.yourname.hideallapps"
 #define kDarwinNotification "com.yourname.hideallapps/prefsChanged"
@@ -59,7 +58,6 @@
     return (CGFloat)s;
 }
 
-// 水平位置：0.0 = 最左，1.0 = 最右
 - (CGFloat)positionRatio {
     id v = [[self defaults] objectForKey:@"statusBarIconPos"];
     if (!v) return 0.05;
@@ -86,7 +84,6 @@
     return nil;
 }
 
-// 扫描所有运行中的 App
 - (void)scanApps {
     if (![self isEnabled]) return;
 
@@ -94,51 +91,38 @@
     if (!appCtrlClass) return;
 
     id shared = nil;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
     if ([appCtrlClass respondsToSelector:@selector(sharedInstance)]) {
         shared = [appCtrlClass performSelector:@selector(sharedInstance)];
     }
-    if (!shared) {
-#pragma clang diagnostic pop
-        return;
-    }
+    if (!shared) return;
+
     NSArray *apps = nil;
     if ([shared respondsToSelector:@selector(allApplications)]) {
         apps = [shared performSelector:@selector(allApplications)];
     }
-#pragma clang diagnostic pop
     if (!apps) return;
 
     NSMutableArray *running = [NSMutableArray array];
     for (id app in apps) {
         NSString *bid = nil;
         if ([app respondsToSelector:@selector(bundleIdentifier)]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
             bid = [app performSelector:@selector(bundleIdentifier)];
-#pragma clang diagnostic pop
         }
         if (!bid || bid.length == 0) continue;
         if ([bid hasPrefix:@"com.apple."]) continue;
 
         BOOL isRunning = NO;
         if ([app respondsToSelector:@selector(isRunning)]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
             isRunning = [app performSelector:@selector(isRunning)];
-#pragma clang diagnostic pop
         }
         if (!isRunning) continue;
         [running addObject:bid];
     }
 
-    // 更新列表：新的插最前，旧的保持
     NSMutableArray *newList = [NSMutableArray array];
     for (NSString *bid in running) {
         if (![newList containsObject:bid]) [newList addObject:bid];
     }
-    // 最多 6 个
     while (newList.count > 6) [newList removeLastObject];
 
     if (![newList isEqualToArray:self.visibleBundleIDs]) {
@@ -226,7 +210,6 @@
         x += size + spacing;
     }
 
-    // 位置：用水平滑块
     CGFloat hostW = host.bounds.size.width;
     CGFloat totalW = MAX(x - spacing, 1);
     CGFloat ratio = [self positionRatio];
