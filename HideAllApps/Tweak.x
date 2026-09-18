@@ -2,11 +2,16 @@
 #import <objc/runtime.h>
 #import "HAAManager.h"
 #import "HAAGestureManager.h"
+#import "HAAStatusBarIconManager.h"
 
 @interface SBIconController : UIViewController
 @end
 
 @interface SPUIAppResultsViewController : UIViewController
+@end
+
+@interface SBApplication : NSObject
+- (NSString *)bundleIdentifier;
 @end
 
 %hook SBIconView
@@ -46,6 +51,28 @@
     %orig;
     if (motion == UIEventSubtypeMotionShake) {
         [[HAAGestureManager sharedManager] handleShake];
+    }
+}
+%end
+
+// 监听 App 激活（iOS 17 用这个通知）
+%hook SBApplication
+- (void)setActive:(BOOL)active {
+    %orig;
+    if (active) {
+        NSString *bid = [self bundleIdentifier];
+        [[HAAStatusBarIconManager sharedManager] noteAppBecameActive:bid];
+    }
+}
+- (void)setProcessState:(NSInteger)state {
+    %orig;
+    // state: 0=never, 1=running, 2=suspended, 3=background, 4=foreground
+    if (state == 0) {
+        NSString *bid = [self bundleIdentifier];
+        [[HAAStatusBarIconManager sharedManager] noteAppExited:bid];
+    } else if (state >= 1) {
+        NSString *bid = [self bundleIdentifier];
+        [[HAAStatusBarIconManager sharedManager] noteAppBecameActive:bid];
     }
 }
 %end
