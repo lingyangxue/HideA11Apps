@@ -82,7 +82,7 @@
         [specs addObject:shake];
 
         PSSpecifier *groupSB = [PSSpecifier groupSpecifierWithName:@"状态栏显示 App 图标"];
-        [groupSB setProperty:@"打开过的 App 图标会显示在状态栏，App 完全退出后消失" forKey:@"footerText"];
+        [groupSB setProperty:@"打开过的 App 图标会显示在状态栏，App 完全退出后消失。任何界面都会显示" forKey:@"footerText"];
         [specs addObject:groupSB];
 
         PSSpecifier *sbEnable = [PSSpecifier preferenceSpecifierNamed:@"启用状态栏图标" target:self set:@selector(setPreferenceValue:specifier:) get:@selector(readPreferenceValue:) detail:nil cell:PSSwitchCell edit:nil];
@@ -90,28 +90,53 @@
         [sbEnable setProperty:@NO forKey:@"default"];
         [specs addObject:sbEnable];
 
-        PSSpecifier *groupSize = [PSSpecifier groupSpecifierWithName:@"图标大小"];
+        PSSpecifier *groupSize = [PSSpecifier groupSpecifierWithName:@"图标大小（拖动滑块）"];
+        [groupSize setProperty:@"范围 8pt ~ 26pt" forKey:@"footerText"];
         [specs addObject:groupSize];
 
-        NSArray *sizeNames = @[@"很小（10pt）", @"小（12pt）", @"中（14pt）", @"大（16pt）", @"很大（18pt）", @"超大（22pt）"];
-        NSArray *sizeVals  = @[@10, @12, @14, @16, @18, @22];
-        for (NSInteger i = 0; i < sizeNames.count; i++) {
-            PSSpecifier *sp = [PSSpecifier preferenceSpecifierNamed:sizeNames[i] target:self set:@selector(setSizeValue:specifier:) get:@selector(sizeValue:) detail:nil cell:PSSwitchCell edit:nil];
-            [sp setProperty:sizeVals[i] forKey:@"sizeValue"];
-            [specs addObject:sp];
-        }
+        PSSpecifier *sizeSlider = [PSSpecifier preferenceSpecifierNamed:@"大小"
+                                                                 target:self
+                                                                    set:@selector(setSizeSlider:specifier:)
+                                                                    get:@selector(getSizeSlider:)
+                                                                 detail:nil
+                                                                   cell:PSSliderCell
+                                                                   edit:nil];
+        [sizeSlider setProperty:@8  forKey:@"min"];
+        [sizeSlider setProperty:@26 forKey:@"max"];
+        [sizeSlider setProperty:@14 forKey:@"default"];
+        [specs addObject:sizeSlider];
 
-        PSSpecifier *groupPos = [PSSpecifier groupSpecifierWithName:@"图标位置（从左到右）"];
-        [groupPos setProperty:@"注意：位置靠右会盖住信号/电量图标，建议选「偏右」或「居中」" forKey:@"footerText"];
+        PSSpecifier *groupPos = [PSSpecifier groupSpecifierWithName:@"水平位置（拖动滑块）"];
+        [groupPos setProperty:@"最左 ← → 最右" forKey:@"footerText"];
         [specs addObject:groupPos];
 
-        NSArray *posNames = @[@"最左", @"偏左", @"居中", @"偏右", @"最右"];
-        NSArray *posVals  = @[@0.1, @0.3, @0.5, @0.7, @0.9];
-        for (NSInteger i = 0; i < posNames.count; i++) {
-            PSSpecifier *sp = [PSSpecifier preferenceSpecifierNamed:posNames[i] target:self set:@selector(setPosValue:specifier:) get:@selector(posValue:) detail:nil cell:PSSwitchCell edit:nil];
-            [sp setProperty:posVals[i] forKey:@"posValue"];
-            [specs addObject:sp];
-        }
+        PSSpecifier *posSlider = [PSSpecifier preferenceSpecifierNamed:@"水平"
+                                                                target:self
+                                                                   set:@selector(setPosSlider:specifier:)
+                                                                   get:@selector(getPosSlider:)
+                                                                detail:nil
+                                                                  cell:PSSliderCell
+                                                                  edit:nil];
+        [posSlider setProperty:@0.0 forKey:@"min"];
+        [posSlider setProperty:@1.0 forKey:@"max"];
+        [posSlider setProperty:@0.5 forKey:@"default"];
+        [specs addObject:posSlider];
+
+        PSSpecifier *groupY = [PSSpecifier groupSpecifierWithName:@"垂直位置（拖动滑块）"];
+        [groupY setProperty:@"0 = 最顶，20 = 稍微往下。默认 8" forKey:@"footerText"];
+        [specs addObject:groupY];
+
+        PSSpecifier *ySlider = [PSSpecifier preferenceSpecifierNamed:@"垂直"
+                                                              target:self
+                                                                 set:@selector(setYSlider:specifier:)
+                                                                 get:@selector(getYSlider:)
+                                                              detail:nil
+                                                                cell:PSSliderCell
+                                                                edit:nil];
+        [ySlider setProperty:@0  forKey:@"min"];
+        [ySlider setProperty:@24 forKey:@"max"];
+        [ySlider setProperty:@8  forKey:@"default"];
+        [specs addObject:ySlider];
 
         PSSpecifier *group4 = [PSSpecifier groupSpecifierWithName:@"单独选择要隐藏的 App"];
         [group4 setProperty:@"这些 App 会一直隐藏（即使未启用「隐藏所有」）" forKey:@"footerText"];
@@ -176,54 +201,49 @@
     [self reloadSpecifiers];
 }
 
-- (id)sizeValue:(PSSpecifier *)specifier {
-    NSInteger myVal = [[specifier propertyForKey:@"sizeValue"] integerValue];
-    NSInteger cur = [[self defaults] integerForKey:@"statusBarIconSize"];
-    if (cur <= 0) cur = 14;
-    return @(myVal == cur);
+// 大小滑块
+- (id)getSizeSlider:(PSSpecifier *)specifier {
+    double v = [[self defaults] doubleForKey:@"statusBarIconSize"];
+    if (v < 6) v = 14;
+    return @(v);
 }
 
-- (void)setSizeValue:(id)value specifier:(PSSpecifier *)specifier {
-    NSInteger myVal = [[specifier propertyForKey:@"sizeValue"] integerValue];
+- (void)setSizeSlider:(id)value specifier:(PSSpecifier *)specifier {
+    double v = [value doubleValue];
     NSUserDefaults *d = [self defaults];
-    if ([value boolValue]) {
-        [d setInteger:myVal forKey:@"statusBarIconSize"];
-        [d synchronize];
-        notify_post(kDarwinNotification);
-    } else {
-        NSInteger cur = [[d objectForKey:@"statusBarIconSize"] integerValue];
-        if (cur == myVal) {
-            [d setInteger:14 forKey:@"statusBarIconSize"];
-            [d synchronize];
-            notify_post(kDarwinNotification);
-        }
-    }
-    [self reloadSpecifiers];
+    [d setDouble:v forKey:@"statusBarIconSize"];
+    [d synchronize];
+    notify_post(kDarwinNotification);
 }
 
-- (id)posValue:(PSSpecifier *)specifier {
-    double myVal = [[specifier propertyForKey:@"posValue"] doubleValue];
-    double cur = [[[self defaults] objectForKey:@"statusBarIconPos"] doubleValue];
-    if (cur <= 0) cur = 0.9;
-    return @(fabs(myVal - cur) < 0.01);
+// 水平位置滑块
+- (id)getPosSlider:(PSSpecifier *)specifier {
+    id v = [[self defaults] objectForKey:@"statusBarIconPos"];
+    if (!v) return @0.5;
+    return v;
 }
 
-- (void)setPosValue:(id)value specifier:(PSSpecifier *)specifier {
-    double myVal = [[specifier propertyForKey:@"posValue"] doubleValue];
+- (void)setPosSlider:(id)value specifier:(PSSpecifier *)specifier {
+    double v = [value doubleValue];
     NSUserDefaults *d = [self defaults];
-    if ([value boolValue]) {
-        [d setDouble:myVal forKey:@"statusBarIconPos"];
-        [d synchronize];
-        notify_post(kDarwinNotification);
-    } else {
-        double cur = [[d objectForKey:@"statusBarIconPos"] doubleValue];
-        if (fabs(cur - myVal) < 0.01) {
-            [d setDouble:0.9 forKey:@"statusBarIconPos"];
-            [d synchronize];
-            notify_post(kDarwinNotification);
-        }
-    }
-    [self reloadSpecifiers];
+    [d setDouble:v forKey:@"statusBarIconPos"];
+    [d synchronize];
+    notify_post(kDarwinNotification);
+}
+
+// 垂直位置滑块
+- (id)getYSlider:(PSSpecifier *)specifier {
+    id v = [[self defaults] objectForKey:@"statusBarIconY"];
+    if (!v) return @8;
+    return v;
+}
+
+- (void)setYSlider:(id)value specifier:(PSSpecifier *)specifier {
+    double v = [value doubleValue];
+    NSUserDefaults *d = [self defaults];
+    [d setDouble:v forKey:@"statusBarIconY"];
+    [d synchronize];
+    notify_post(kDarwinNotification);
 }
 
 @end
