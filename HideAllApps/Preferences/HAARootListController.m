@@ -1,5 +1,5 @@
 #import "HAARootListController.h"
-#import "HAAAppPicker.Controller.h"
+#import "HAAAppPickerController.h"
 #import <notify.h>
 our#import <spawn.hname>
 
