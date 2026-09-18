@@ -162,6 +162,8 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 #pragma mark - Debug Border
 
 - (void)showDebugBorder {
+    NSLog(@"[HideAllApps] showDebugBorder called, top=%f bot=%f width=%f", self.zoneTopRatio, self.zoneBottomRatio, self.zoneWidth);
+
     UIView *host = nil;
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
         NSString *cls = NSStringFromClass(w.class);
@@ -173,14 +175,23 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
         }
     }
     if (!host) host = [UIApplication sharedApplication].keyWindow;
-    if (!host) return;
+    if (!host) {
+        NSLog(@"[HideAllApps] showDebugBorder: no host view");
+        return;
+    }
 
     CGSize size = host.bounds.size;
+    NSLog(@"[HideAllApps] host size = %@", NSStringFromCGSize(size));
+
+    for (UIView *v in host.subviews) {
+        if (v.tag == 99991) [v removeFromSuperview];
+    }
 
     UIView *border = [[UIView alloc] init];
-    border.backgroundColor = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:0.25];
+    border.tag = 99991;
+    border.backgroundColor = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:0.35];
     border.layer.borderColor = [UIColor redColor].CGColor;
-    border.layer.borderWidth = 2.0;
+    border.layer.borderWidth = 3.0;
     border.userInteractionEnabled = NO;
 
     CGFloat x = 0;
@@ -189,6 +200,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     CGFloat h = size.height * (self.zoneBottomRatio - self.zoneTopRatio);
 
     border.frame = CGRectMake(x, y, w, h);
+    NSLog(@"[HideAllApps] border frame = %@", NSStringFromCGRect(border.frame));
     [host addSubview:border];
     [host bringSubviewToFront:border];
 
