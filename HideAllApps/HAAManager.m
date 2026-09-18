@@ -125,39 +125,59 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     }
 }
 
+#pragma mark - 状态栏隐藏（递归查找所有 StatusBar 类名的 view）
+
 - (void)applyStatusBarHiddenIfNeeded {
     BOOL shouldHide = self.hideStatusBar && self.hideAll && self.enabled;
     for (UIWindow *w in [UIApplication sharedApplication].windows) {
-        NSString *cls = NSStringFromClass(w.class);
-        if (![cls containsString:@"StatusBar"]) continue;
-        w.alpha = shouldHide ? 0.0 : 1.0;
-        w.hidden = shouldHide ? YES : NO;
-        for (UIView *sub in w.subviews) {
-            NSString *subCls = NSStringFromClass(sub.class);
-            if ([subCls containsString:@"StatusBar"]) {
-                sub.alpha = shouldHide ? 0.0 : 1.0;
-            }
-        }
+        [self _findStatusBarInView:w hidden:shouldHide depth:0];
     }
 }
+
+- (void)_findStatusBarInView:(UIView *)view hidden:(BOOL)hidden depth:(int)depth {
+    if (depth > 15) return;
+    if (!view) return;
+
+    NSString *cls = NSStringFromClass(view.class);
+
+    BOOL isStatusBar = NO;
+    if ([cls containsString:@"StatusBar"]) isStatusBar = YES;
+    if ([cls containsString:@"_UIStatusBar"]) isStatusBar = YES;
+    if ([cls isEqualToString:@"UIStatusBar"]) isStatusBar = YES;
+    if ([cls containsString:@"StatusBarForeground"]) isStatusBar = YES;
+
+    if (isStatusBar) {
+        view.alpha = hidden ? 0.0 : 1.0;
+        view.hidden = hidden ? YES : NO;
+    }
+
+    for (UIView *sub in view.subviews) {
+        [self _findStatusBarInView:sub hidden:hidden depth:depth + 1];
+    }
+}
+
+#pragma mark - 图标隐藏
 
 - (void)applyHiddenStateToIconView:(id)iconView {
     if (!iconView) return;
     if (![iconView isKindOfClass:[UIView class]]) return;
     UIView *view = (UIView *)iconView;
 
-    // 未启用：完全恢复
+    NSString *cls = NSStringFromClass(view.class);
+    if (![cls isEqualToString:@"SBIconView"] &&
+        ![cls isEqualToString:@"SBFolderIconView"]) {
+        return;
+    }
+
     if (!self.enabled) {
         view.alpha = 1.0;
-        view.userInteractionEnabled = YES;
-        view.hidden = NO;
         return;
     }
 
     BOOL hide = NO;
     id icon = nil;
-    if ([iconView respondsToSelector:@selector(icon)]) {
-        icon = [iconView performSelector:@selector(icon)];
+    if ([view respondsToSelector:@selector(icon)]) {
+        icon = [view performSelector:@selector(icon)];
     }
     if (icon) {
         NSString *bundleID = nil;
@@ -174,17 +194,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
         else if (bundleID) hide = [self shouldHideBundleID:bundleID];
     }
 
-    // 显示：可见 + 可点
-    // 隐藏：不可见 + 不可点
-    if (hide) {
-        view.alpha = 0.0;
-        view.hidden = YES;
-        view.userInteractionEnabled = NO;
-    } else {
-        view.alpha = 1.0;
-        view.hidden = NO;
-        view.userInteractionEnabled = YES;
-    }
+    view.alpha = hide ? 0.0 : 1.0;
 }
 
 - (void)refreshAllIconViews {
@@ -197,11 +207,10 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
 - (void)_walkView:(UIView *)view depth:(int)depth {
     if (depth > 25) return;
     NSString *cls = NSStringFromClass(view.class);
-    BOOL isIconClass = NO;
-    if ([cls isEqualToString:@"SBIconView"]) isIconClass = YES;
-    if ([cls isEqualToString:@"SBFolderIconView"]) isIconClass = YES;
-    if ([cls containsString:@"IconView"] && [cls containsString:@"SB"]) isIconClass = YES;
-    if (isIconClass) [self applyHiddenStateToIconView:view];
+    if ([cls isEqualToString:@"SBIconView"] || [cls isEqualToString:@"SBFolderIconView"]) {
+        [self applyHiddenStateToIconView:view];
+        return;
+    }
     for (UIView *sub in view.subviews) [self _walkView:sub depth:depth + 1];
 }
 
