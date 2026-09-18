@@ -17,6 +17,7 @@ extern NSString * const kHAAPrefsChangedDarwinNotification;
 @property (nonatomic, assign) NSInteger gestureType;
 @property (nonatomic, assign) BOOL shakeEnabled;
 @property (nonatomic, assign) BOOL leftDownEnabled;
+@property (nonatomic, assign) NSInteger leftDownZone;  // 0=上半 1=中段 2=下半 3=整个
 @property (nonatomic, assign) BOOL hideAll;
 @property (nonatomic, strong) NSSet *hiddenBundleIDs;
 @property (nonatomic, strong) NSTimer *refreshTimer;
