@@ -46,12 +46,7 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     self.shakeEnabled               = [d boolForKey:@"shakeEnabled"];
 
     self.leftDownEnabled            = [d boolForKey:@"leftDownEnabled"];
-    self.leftDownRecoverEnabled     = [d boolForKey:@"leftDownRecoverEnabled"];
-    self.leftDownHideEnabled        = [d boolForKey:@"leftDownHideEnabled"];
-
     self.rightDownEnabled           = [d boolForKey:@"rightDownEnabled"];
-    self.rightDownRecoverEnabled    = [d boolForKey:@"rightDownRecoverEnabled"];
-    self.rightDownHideEnabled       = [d boolForKey:@"rightDownHideEnabled"];
 
     id topV = [d objectForKey:@"zoneTopRatio"];
     self.zoneTopRatio = topV ? [topV doubleValue] : 0.15;
@@ -191,7 +186,6 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     CGFloat y = size.height * self.zoneTopRatio;
     CGFloat h = size.height * (self.zoneBottomRatio - self.zoneTopRatio);
 
-    // 左侧区域
     UIView *leftBorder = [[UIView alloc] init];
     leftBorder.tag = 99991;
     leftBorder.backgroundColor = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:0.25];
@@ -201,7 +195,6 @@ NSString * const kHAAPrefsChangedDarwinNotification = @"com.yourname.hideallapps
     leftBorder.frame = CGRectMake(0, y, self.zoneWidth, h);
     [host addSubview:leftBorder];
 
-    // 右侧区域
     UIView *rightBorder = [[UIView alloc] init];
     rightBorder.tag = 99991;
     rightBorder.backgroundColor = [UIColor colorWithRed:0.0 green:0.0 blue:1.0 alpha:0.25];
