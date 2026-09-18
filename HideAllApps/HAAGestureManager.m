@@ -18,15 +18,12 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     if (objc_getAssociatedObject(view, kHAAGestureInstalledKey)) return;
     objc_setAssociatedObject(view, kHAAGestureInstalledKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
-    UIScreenEdgePanGestureRecognizer *leftEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleLeftEdgePan:)];
-    leftEdge.edges = UIRectEdgeLeft;
-    leftEdge.cancelsTouchesInView = NO;
-    [view addGestureRecognizer:leftEdge];
-
-    UIScreenEdgePanGestureRecognizer *rightEdge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRightEdgePan:)];
-    rightEdge.edges = UIRectEdgeRight;
-    rightEdge.cancelsTouchesInView = NO;
-    [view addGestureRecognizer:rightEdge];
+    // 向下滑识别器（左、右各一个，方向都是向下）
+    UISwipeGestureRecognizer *swipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(handleSwipeDown:)];
+    swipe.direction = UISwipeGestureRecognizerDirectionDown;
+    swipe.numberOfTouchesRequired = 1;
+    swipe.cancelsTouchesInView = NO;
+    [view addGestureRecognizer:swipe];
 }
 
 - (void)installGesturesIntoSpringBoard {
@@ -59,36 +56,28 @@ static const void *kHAAGestureInstalledKey = &kHAAGestureInstalledKey;
     return YES;
 }
 
-- (void)handleLeftEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
+- (void)handleSwipeDown:(UISwipeGestureRecognizer *)gr {
     HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled || !m.leftDownEnabled) return;
-    if (gr.state != UIGestureRecognizerStateEnded) return;
+    if (!m.enabled) return;
 
-    CGPoint t = [gr translationInView:gr.view];
-    CGSize size = gr.view.bounds.size;
     CGPoint loc = [gr locationInView:gr.view];
+    CGSize size = gr.view.bounds.size;
 
-    if (t.y < 30) return;
-    if (fabs(t.y) < fabs(t.x)) return;
+    // 起点必须在屏幕顶部 15% 以下，避免误触
     if (![self inYZone:loc.y height:size.height]) return;
 
-    [m toggleHidden];
-}
-
-- (void)handleRightEdgePan:(UIScreenEdgePanGestureRecognizer *)gr {
-    HAAManager *m = [HAAManager sharedManager];
-    if (!m.enabled || !m.rightDownEnabled) return;
-    if (gr.state != UIGestureRecognizerStateEnded) return;
-
-    CGPoint t = [gr translationInView:gr.view];
-    CGSize size = gr.view.bounds.size;
-    CGPoint loc = [gr locationInView:gr.view];
-
-    if (t.y < 30) return;
-    if (fabs(t.y) < fabs(t.x)) return;
-    if (![self inYZone:loc.y height:size.height]) return;
-
-    [m toggleHidden];
+    // 左侧
+    if (loc.x <= m.zoneWidth) {
+        if (!m.leftDownEnabled) return;
+        [m toggleHidden];
+        return;
+    }
+    // 右侧
+    if (loc.x >= size.width - m.zoneWidth) {
+        if (!m.rightDownEnabled) return;
+        [m toggleHidden];
+        return;
+    }
 }
 
 @end
